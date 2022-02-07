@@ -1,0 +1,33 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - cue.contrib.flux.io
+  resources:
+  - cueinstances
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - cue.contrib.flux.io
+  resources:
+  - cueinstances/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - cue.contrib.flux.io
+  resources:
+  - cueinstances/status
+  verbs:
+  - get
+  - patch
+  - update

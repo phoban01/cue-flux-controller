@@ -1,0 +1,6 @@
+apiVersion: cue.contrib.flux.io/v1alpha1
+kind: CueInstance
+metadata:
+  name: cueinstance-sample
+spec:
+  # TODO(user): Add fields here

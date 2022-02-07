@@ -1,0 +1,24 @@
+# permissions for end users to edit cueinstances.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cueinstance-editor-role
+rules:
+- apiGroups:
+  - cue.contrib.flux.io
+  resources:
+  - cueinstances
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - cue.contrib.flux.io
+  resources:
+  - cueinstances/status
+  verbs:
+  - get

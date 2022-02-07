@@ -1,10 +1,10 @@
-apiVersion: cue.contrib.fluxcd.io/v1alpha1
+apiVersion: cue.contrib.flux.io/v1alpha1
 kind: CueInstance
 metadata:
   name: cueinstance-sample
   namespace: default
 spec:
-  interval: 1m0s
+  interval: 2m0s
   sourceRef:
     kind: GitRepository
     name: cueinstance-sample

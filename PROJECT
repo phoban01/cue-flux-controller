@@ -1,0 +1,16 @@
+domain: contrib.flux.io
+layout:
+- go.kubebuilder.io/v3
+projectName: cue-flux-controller
+repo: cue-flux-controller.git
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: contrib.flux.io
+  group: cue
+  kind: CueInstance
+  path: cue-flux-controller.git/api/v1alpha1
+  version: v1alpha1
+version: "3"
