@@ -1,0 +1,15 @@
+apiVersion: cue.contrib.fluxcd.io/v1alpha1
+kind: CueInstance
+metadata:
+  name: cueinstance-sample
+  namespace: default
+spec:
+  interval: 1m0s
+  sourceRef:
+    kind: GitRepository
+    name: cueinstance-sample
+  inject:
+  - name: env
+    value: prod
+  path: "./"
+  prune: true
