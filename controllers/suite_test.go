@@ -1,5 +1,5 @@
 /*
-Copyright 2022.
+Copyright 2021 The Flux authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,64 +17,350 @@ limitations under the License.
 package controllers
 
 import (
+	"archive/tar"
+	"compress/gzip"
+	"context"
+	"crypto/sha1"
+	"crypto/sha256"
+	"fmt"
+	"io"
+	"math/rand"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"github.com/fluxcd/pkg/apis/meta"
+	"github.com/fluxcd/pkg/runtime/controller"
+	"github.com/fluxcd/pkg/runtime/testenv"
+	"github.com/fluxcd/pkg/testserver"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
+	cuev1alpha1 "github.com/phoban01/cue-flux-controller/api/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	controllerLog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	cuev1alpha1 "github.com/phoban01/cue-flux-controller/api/v1alpha1"
-	//+kubebuilder:scaffold:imports
 )
 
-// These tests use Ginkgo (BDD-style Go testing framework). Refer to
-// http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
-
-var cfg *rest.Config
-var k8sClient client.Client
-var testEnv *envtest.Environment
-
-func TestAPIs(t *testing.T) {
-	RegisterFailHandler(Fail)
-
-	RunSpecsWithDefaultAndCustomReporters(t,
-		"Controller Suite",
-		[]Reporter{printer.NewlineReporter{}})
+func init() {
+	rand.Seed(time.Now().UnixNano())
 }
 
-var _ = BeforeSuite(func() {
-	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+const (
+	timeout                = time.Second * 30
+	interval               = time.Second * 1
+	reconciliationInterval = time.Second * 5
+)
 
-	By("bootstrapping test environment")
-	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "config", "crd", "bases")},
-		ErrorIfCRDPathMissing: true,
+const vaultVersion = "1.2.2"
+
+var (
+	reconciler   *CueInstanceReconciler
+	k8sClient    client.Client
+	testEnv      *testenv.Environment
+	testServer   *testserver.ArtifactServer
+	testMetricsH controller.Metrics
+	testEventsH  controller.Events
+	ctx          = ctrl.SetupSignalHandler()
+	kubeConfig   []byte
+	debugMode    = os.Getenv("DEBUG_TEST") != ""
+)
+
+func runInContext(registerControllers func(*testenv.Environment), run func() error, crdPath string) error {
+	var err error
+	utilruntime.Must(sourcev1.AddToScheme(scheme.Scheme))
+	utilruntime.Must(cuev1alpha1.AddToScheme(scheme.Scheme))
+
+	if debugMode {
+		controllerLog.SetLogger(zap.New(zap.WriteTo(os.Stderr), zap.UseDevMode(false)))
 	}
 
-	cfg, err := testEnv.Start()
-	Expect(err).NotTo(HaveOccurred())
-	Expect(cfg).NotTo(BeNil())
+	testEnv = testenv.New(testenv.WithCRDPath(crdPath))
 
-	err = cuev1alpha1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
+	testServer, err = testserver.NewTempArtifactServer()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create a temporary storage server: %v", err))
+	}
+	fmt.Println("Starting the test storage server")
+	testServer.Start()
 
-	//+kubebuilder:scaffold:scheme
+	registerControllers(testEnv)
 
-	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
-	Expect(err).NotTo(HaveOccurred())
-	Expect(k8sClient).NotTo(BeNil())
+	go func() {
+		fmt.Println("Starting the test environment")
+		if err := testEnv.Start(ctx); err != nil {
+			panic(fmt.Sprintf("Failed to start the test environment manager: %v", err))
+		}
+	}()
+	<-testEnv.Manager.Elected()
 
-}, 60)
+	user, err := testEnv.AddUser(envtest.User{
+		Name:   "testenv-admin",
+		Groups: []string{"system:masters"},
+	}, nil)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create testenv-admin user: %v", err))
+	}
 
-var _ = AfterSuite(func() {
-	By("tearing down the test environment")
-	err := testEnv.Stop()
-	Expect(err).NotTo(HaveOccurred())
-})
+	kubeConfig, err = user.KubeConfig()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create the testenv-admin user kubeconfig: %v", err))
+	}
+
+	// Client with caching disabled.
+	k8sClient, err = client.New(testEnv.Config, client.Options{Scheme: scheme.Scheme})
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create k8s client: %v", err))
+	}
+
+	runErr := run()
+
+	if debugMode {
+		events := &corev1.EventList{}
+		_ = k8sClient.List(ctx, events)
+		for _, event := range events.Items {
+			fmt.Printf("%s %s \n%s\n",
+				event.InvolvedObject.Name, event.GetAnnotations()["cue.contrib.flux.io/revision"],
+				event.Message)
+		}
+	}
+
+	fmt.Println("Stopping the test environment")
+	if err := testEnv.Stop(); err != nil {
+		panic(fmt.Sprintf("Failed to stop the test environment: %v", err))
+	}
+
+	fmt.Println("Stopping the file server")
+	testServer.Stop()
+	if err := os.RemoveAll(testServer.Root()); err != nil {
+		panic(fmt.Sprintf("Failed to remove storage server dir: %v", err))
+	}
+
+	return runErr
+}
+
+func TestMain(m *testing.M) {
+	code := 0
+
+	runInContext(func(testEnv *testenv.Environment) {
+		controllerName := "cue-controller"
+		testEventsH = controller.MakeEvents(testEnv, controllerName, nil)
+		testMetricsH = controller.MustMakeMetrics(testEnv)
+		reconciler = &CueInstanceReconciler{
+			ControllerName:  controllerName,
+			Client:          testEnv,
+			EventRecorder:   testEventsH.EventRecorder,
+			MetricsRecorder: testMetricsH.MetricsRecorder,
+		}
+		if err := (reconciler).SetupWithManager(testEnv, CueInstanceReconcilerOptions{MaxConcurrentReconciles: 4}); err != nil {
+			panic(fmt.Sprintf("Failed to start CueInstanceReconciler: %v", err))
+		}
+	}, func() error {
+		code = m.Run()
+		return nil
+	}, filepath.Join("..", "config", "crd", "bases"))
+
+	os.Exit(code)
+}
+
+var letterRunes = []rune("abcdefghijklmnopqrstuvwxyz1234567890")
+
+func randStringRunes(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letterRunes[rand.Intn(len(letterRunes))]
+	}
+	return string(b)
+}
+
+func getEvents(objName string, annotations map[string]string) []corev1.Event {
+	var result []corev1.Event
+	events := &corev1.EventList{}
+	_ = k8sClient.List(ctx, events)
+	for _, event := range events.Items {
+		if event.InvolvedObject.Name == objName {
+			if annotations == nil && len(annotations) == 0 {
+				result = append(result, event)
+			} else {
+				for ak, av := range annotations {
+					if event.GetAnnotations()[ak] == av {
+						result = append(result, event)
+						break
+					}
+				}
+			}
+		}
+	}
+	return result
+}
+
+func createNamespace(name string) error {
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+	}
+	return k8sClient.Create(context.Background(), namespace)
+}
+
+func createKubeConfigSecret(namespace string) error {
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "kubeconfig",
+			Namespace: namespace,
+		},
+		Data: map[string][]byte{
+			"value.yaml": kubeConfig,
+		},
+	}
+	return k8sClient.Create(context.Background(), secret)
+}
+
+func applyGitRepository(objKey client.ObjectKey, artifactName string, revision string) error {
+	repo := &sourcev1.GitRepository{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       sourcev1.GitRepositoryKind,
+			APIVersion: sourcev1.GroupVersion.String(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      objKey.Name,
+			Namespace: objKey.Namespace,
+		},
+		Spec: sourcev1.GitRepositorySpec{
+			URL:      "https://github.com/test/repository",
+			Interval: metav1.Duration{Duration: time.Minute},
+		},
+	}
+
+	b, _ := os.ReadFile(filepath.Join(testServer.Root(), artifactName))
+	checksum := fmt.Sprintf("%x", sha256.Sum256(b))
+
+	url := fmt.Sprintf("%s/%s", testServer.URL(), artifactName)
+
+	status := sourcev1.GitRepositoryStatus{
+		Conditions: []metav1.Condition{
+			{
+				Type:               meta.ReadyCondition,
+				Status:             metav1.ConditionTrue,
+				LastTransitionTime: metav1.Now(),
+				Reason:             sourcev1.GitOperationSucceedReason,
+			},
+		},
+		Artifact: &sourcev1.Artifact{
+			Path:           url,
+			URL:            url,
+			Revision:       revision,
+			Checksum:       checksum,
+			LastUpdateTime: metav1.Now(),
+		},
+	}
+
+	opt := []client.PatchOption{
+		client.ForceOwnership,
+		client.FieldOwner("kustomize-controller"),
+	}
+
+	if err := k8sClient.Patch(context.Background(), repo, client.Apply, opt...); err != nil {
+		return err
+	}
+
+	repo.ManagedFields = nil
+	repo.Status = status
+	if err := k8sClient.Status().Patch(context.Background(), repo, client.Apply, opt...); err != nil {
+		return err
+	}
+	return nil
+}
+
+func createArtifact(artifactServer *testserver.ArtifactServer, fixture, path string) (string, error) {
+	if f, err := os.Stat(fixture); os.IsNotExist(err) || !f.IsDir() {
+		return "", fmt.Errorf("invalid fixture path: %s", fixture)
+	}
+	f, err := os.Create(filepath.Join(artifactServer.Root(), path))
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		if err != nil {
+			os.Remove(f.Name())
+		}
+	}()
+
+	h := sha1.New()
+
+	mw := io.MultiWriter(h, f)
+	gw := gzip.NewWriter(mw)
+	tw := tar.NewWriter(gw)
+
+	if err = filepath.Walk(fixture, func(p string, fi os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Ignore anything that is not a file (directories, symlinks)
+		if !fi.Mode().IsRegular() {
+			return nil
+		}
+
+		// Ignore dotfiles
+		if strings.HasPrefix(fi.Name(), ".") {
+			return nil
+		}
+
+		header, err := tar.FileInfoHeader(fi, p)
+		if err != nil {
+			return err
+		}
+		// The name needs to be modified to maintain directory structure
+		// as tar.FileInfoHeader only has access to the base name of the file.
+		// Ref: https://golang.org/src/archive/tar/common.go?#L626
+		relFilePath := p
+		if filepath.IsAbs(fixture) {
+			relFilePath, err = filepath.Rel(fixture, p)
+			if err != nil {
+				return err
+			}
+		}
+		header.Name = relFilePath
+
+		if err := tw.WriteHeader(header); err != nil {
+			return err
+		}
+
+		f, err := os.Open(p)
+		if err != nil {
+			f.Close()
+			return err
+		}
+		if _, err := io.Copy(tw, f); err != nil {
+			f.Close()
+			return err
+		}
+		return f.Close()
+	}); err != nil {
+		return "", err
+	}
+
+	if err := tw.Close(); err != nil {
+		gw.Close()
+		f.Close()
+		return "", err
+	}
+	if err := gw.Close(); err != nil {
+		f.Close()
+		return "", err
+	}
+	if err := f.Close(); err != nil {
+		return "", err
+	}
+
+	if err := os.Chmod(f.Name(), 0644); err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%x", h.Sum(nil)), nil
+}
