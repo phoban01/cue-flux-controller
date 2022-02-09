@@ -34,6 +34,7 @@ import (
 	"github.com/fluxcd/pkg/runtime/acl"
 	"github.com/fluxcd/pkg/runtime/events"
 	"github.com/fluxcd/pkg/runtime/metrics"
+	"github.com/fluxcd/pkg/runtime/predicates"
 	"github.com/fluxcd/pkg/ssa"
 	"github.com/fluxcd/pkg/untar"
 	"github.com/hashicorp/go-retryablehttp"
@@ -43,9 +44,14 @@ import (
 	"k8s.io/client-go/tools/reference"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -83,9 +89,39 @@ type CueInstanceReconcilerOptions struct {
 //+kubebuilder:rbac:groups=cue.contrib.flux.io,resources=cueinstances/finalizers,verbs=update
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *CueInstanceReconciler) SetupWithManager(mgr ctrl.Manager) error {
+// SetupWithManager sets up the controller with the Manager.
+func (r *CueInstanceReconciler) SetupWithManager(mgr ctrl.Manager, opts CueInstanceReconcilerOptions) error {
+	const (
+		gitRepositoryIndexKey string = ".metadata.gitRepository"
+	)
+
+	// Index the CueInstance by the GitRepository references they (may) point at.
+	if err := mgr.GetCache().IndexField(context.TODO(), &cuev1alpha1.CueInstance{}, gitRepositoryIndexKey,
+		r.indexBy(sourcev1.GitRepositoryKind)); err != nil {
+		return fmt.Errorf("failed setting index fields: %w", err)
+	}
+
+	r.requeueDependency = opts.DependencyRequeueInterval
+
+	// Configure the retryable http client used for fetching artifacts.
+	// By default it retries 10 times within a 3.5 minutes window.
+	httpClient := retryablehttp.NewClient()
+	httpClient.RetryWaitMin = 5 * time.Second
+	httpClient.RetryWaitMax = 30 * time.Second
+	httpClient.RetryMax = opts.HTTPRetry
+	httpClient.Logger = nil
+	r.httpClient = httpClient
+
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&cuev1alpha1.CueInstance{}).
+		For(&cuev1alpha1.CueInstance{}, builder.WithPredicates(
+			predicate.Or(predicate.GenerationChangedPredicate{}, predicates.ReconcileRequestedPredicate{}),
+		)).
+		Watches(
+			&source.Kind{Type: &sourcev1.GitRepository{}},
+			handler.EnqueueRequestsFromMapFunc(r.requestsForRevisionChangeOf(gitRepositoryIndexKey)),
+			builder.WithPredicates(SourceRevisionChangePredicate{}),
+		).
+		WithOptions(controller.Options{MaxConcurrentReconciles: opts.MaxConcurrentReconciles}).
 		Complete(r)
 }
 

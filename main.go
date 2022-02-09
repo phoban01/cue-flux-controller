@@ -81,7 +81,7 @@ func main() {
 	if err = (&controllers.CueInstanceReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(mgr, controllers.CueInstanceReconcilerOptions{}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CueInstance")
 		os.Exit(1)
 	}
