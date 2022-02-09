@@ -30,7 +30,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	cuev1alpha1 "cue-flux-controller.git/api/v1alpha1"
+	cuev1alpha1 "github.com/phoban01/cue-flux-controller/api/v1alpha1"
 	//+kubebuilder:scaffold:imports
 )
 

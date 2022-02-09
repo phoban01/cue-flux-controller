@@ -11,6 +11,6 @@ resources:
   domain: contrib.flux.io
   group: cue
   kind: CueInstance
-  path: cue-flux-controller.git/api/v1alpha1
+  path: github.com/phoban01/cue-flux-controller/api/v1alpha1
   version: v1alpha1
 version: "3"

@@ -33,6 +33,7 @@ import (
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/runtime/acl"
 	"github.com/fluxcd/pkg/runtime/events"
+	"github.com/fluxcd/pkg/runtime/metrics"
 	"github.com/fluxcd/pkg/ssa"
 	"github.com/fluxcd/pkg/untar"
 	"github.com/hashicorp/go-retryablehttp"
@@ -40,6 +41,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/reference"
+	"sigs.k8s.io/cli-utils/pkg/kstatus/polling"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -47,18 +49,33 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/client-go/tools/reference"
 
-	cuev1alpha1 "cue-flux-controller.git/api/v1alpha1"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
+	cuev1alpha1 "github.com/phoban01/cue-flux-controller/api/v1alpha1"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
+
+	kuberecorder "k8s.io/client-go/tools/record"
 )
 
 // CueInstanceReconciler reconciles a CueInstance object
 type CueInstanceReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	httpClient            *retryablehttp.Client
+	requeueDependency     time.Duration
+	Scheme                *runtime.Scheme
+	EventRecorder         kuberecorder.EventRecorder
+	ExternalEventRecorder *events.Recorder
+	MetricsRecorder       *metrics.Recorder
+	StatusPoller          *polling.StatusPoller
+	ControllerName        string
+	NoCrossNamespaceRefs  bool
+}
+
+// CueInstanceReconcilerOptions options
+type CueInstanceReconcilerOptions struct {
+	MaxConcurrentReconciles   int
+	HTTPRetry                 int
+	DependencyRequeueInterval time.Duration
 }
 
 //+kubebuilder:rbac:groups=cue.contrib.flux.io,resources=cueinstances,verbs=get;list;watch;create;update;patch;delete

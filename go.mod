@@ -1,4 +1,4 @@
-module cue-flux-controller.git
+module github.com/phoban01/cue-flux-controller
 
 go 1.17
 
