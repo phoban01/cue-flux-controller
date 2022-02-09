@@ -17,25 +17,73 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"time"
+
 	"github.com/fluxcd/pkg/apis/meta"
+	"github.com/fluxcd/pkg/runtime/dependency"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+)
+
+const (
+	CueInstanceKind           = "CueInstance"
+	CueInstanceFinalizer      = "finalizers.fluxcd.io"
+	MaxConditionMessageLength = 20000
+	DisabledValue             = "disabled"
 )
 
 // CueInstanceSpec defines the desired state of CueInstance
 type CueInstanceSpec struct {
 	// +required
 	Interval metav1.Duration `json:"interval"`
+
 	// +required
 	SourceRef CrossNamespaceSourceReference `json:"sourceRef"`
+
 	// +optional
 	Inject []InjectItem `json:"inject,omitempty"`
 
 	// +optional
 	Path string `json:"path"`
 
+	// +optional
+	DependsOn []dependency.CrossNamespaceDependencyReference `json:"dependsOn,omitempty"`
+
 	// Prune enables garbage collection.
 	// +required
 	Prune bool `json:"prune"`
+
+	// The interval at which to retry a previously failed reconciliation.
+	// When not specified, the controller uses the CueInstanceSpec.Interval
+	// value to retry failures.
+	// +optional
+	RetryInterval *metav1.Duration `json:"retryInterval,omitempty"`
+
+	// Timeout for validation, apply and health checking operations.
+	// Defaults to 'Interval' duration.
+	// +optional
+	Timeout *metav1.Duration `json:"timeout,omitempty"`
+
+	// This flag tells the controller to suspend subsequent cue executions,
+	// it does not apply to already started executions. Defaults to false.
+	// +optional
+	Suspend bool `json:"suspend,omitempty"`
+
+	// The name of the Kubernetes service account to impersonate
+	// when reconciling this CueInstance.
+	// +optional
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+
+	// The KubeConfig for reconciling the CueInstance on a remote cluster.
+	// When specified, KubeConfig takes precedence over ServiceAccountName.
+	// +optional
+	KubeConfig *KubeConfig `json:"kubeConfig,omitempty"`
+
+	// Force instructs the controller to recreate resources
+	// when patching fails due to an immutable field change.
+	// +kubebuilder:default:=false
+	// +optional
+	Force bool `json:"force,omitempty"`
 }
 
 type InjectItem struct {
@@ -43,6 +91,52 @@ type InjectItem struct {
 	Name string `json:"name"`
 	// +required
 	Value string `json:"value"`
+}
+
+func (in CueInstance) GetTimeout() time.Duration {
+	duration := in.Spec.Interval.Duration - 30*time.Second
+	if in.Spec.Timeout != nil {
+		duration = in.Spec.Timeout.Duration
+	}
+	if duration < 30*time.Second {
+		return 30 * time.Second
+	}
+	return duration
+}
+
+// KubeConfig references a Kubernetes secret that contains a kubeconfig file.
+type KubeConfig struct {
+	// SecretRef holds the name to a secret that contains a 'value' key with
+	// the kubeconfig file as the value. It must be in the same namespace as
+	// the CueInstance.
+	// It is recommended that the kubeconfig is self-contained, and the secret
+	// is regularly updated if credentials such as a cloud-access-token expire.
+	// Cloud specific `cmd-path` auth helpers will not function without adding
+	// binaries and credentials to the Pod that is responsible for reconciling
+	// the CueInstance.
+	// +required
+	SecretRef meta.LocalObjectReference `json:"secretRef,omitempty"`
+}
+
+// GetRetryInterval returns the retry interval
+func (in CueInstance) GetRetryInterval() time.Duration {
+	if in.Spec.RetryInterval != nil {
+		return in.Spec.RetryInterval.Duration
+	}
+	return in.Spec.Interval.Duration
+}
+
+// GetDependsOn returns the list of dependencies across-namespaces.
+func (in CueInstance) GetDependsOn() (types.NamespacedName, []dependency.CrossNamespaceDependencyReference) {
+	return types.NamespacedName{
+		Namespace: in.Namespace,
+		Name:      in.Name,
+	}, in.Spec.DependsOn
+}
+
+// GetStatusConditions returns a pointer to the Status.Conditions slice.
+func (in *CueInstance) GetStatusConditions() *[]metav1.Condition {
+	return &in.Status.Conditions
 }
 
 // CueInstanceStatus defines the observed state of CueInstance
