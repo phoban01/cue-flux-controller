@@ -82,6 +82,9 @@ spec:
                     - name
                     type: object
                 type: object
+              moduleRoot:
+                default: ./
+                type: string
               path:
                 type: string
               prune:

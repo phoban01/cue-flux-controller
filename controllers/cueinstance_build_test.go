@@ -31,7 +31,7 @@ func TestCueInstanceReconciler_BuildInstance(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	artifactFile := "instance-" + randStringRunes(5)
-	artifactChecksum, err := createArtifact(testServer, "testdata/instances/deployment", artifactFile)
+	artifactChecksum, err := createArtifact(testServer, "testdata/multi_env", artifactFile)
 	g.Expect(err).ToNot(HaveOccurred())
 
 	repositoryName := types.NamespacedName{
@@ -55,15 +55,20 @@ func TestCueInstanceReconciler_BuildInstance(t *testing.T) {
 			Namespace: cueInstanceKey.Namespace,
 		},
 		Spec: cuev1alpha1.CueInstanceSpec{
-			Interval: metav1.Duration{Duration: reconciliationInterval},
-			Path:     "./testdata/instances/deployment",
+			Interval:   metav1.Duration{Duration: reconciliationInterval},
+			ModuleRoot: "./testdata/multi_env",
+			Path:       "env/dev",
 			Exprs: []string{
-				"kubernetes",
+				"k8s",
 			},
 			Tags: []cuev1alpha1.TagVar{
 				{
 					Name:  "name",
 					Value: tagName,
+				},
+				{
+					Name:  "namespace",
+					Value: deployNamespace,
 				},
 			},
 			KubeConfig: &cuev1alpha1.KubeConfig{

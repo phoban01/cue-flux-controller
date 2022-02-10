@@ -1,9 +1,11 @@
 package kube
 
-_name:      string                @tag(name)
-_namespace: *"cue-build" | string @tag(namespace)
+env: string @tag(env)
 
-#deployment: {
+_name:      string
+_namespace: string
+
+kubernetes: deployment: {
 	apiVersion: "apps/v1"
 	kind:       "Deployment"
 	metadata: {
@@ -12,19 +14,27 @@ _namespace: *"cue-build" | string @tag(namespace)
 		labels: app: _name
 	}
 	spec: {
-		replicas: 1
+		replicas: *1 | int
 		selector: matchLabels: app: _name
 		template: {
 			metadata: labels: app: _name
-			spec: containers: [{
-				name:  _name
-				image: _name
-			}]
+			spec: containers: [
+				{
+					name:  _name
+					image: _name
+				},
+				if env != "prd" {
+					{
+						name:  "sidecar"
+						image: "proxy:latest"
+					}
+				},
+			]
 		}
 	}
 }
 
-#serviceAccount: {
+kubernetes: serviceaccount: {
 	apiVersion: "v1"
 	kind:       "ServiceAccount"
 	metadata: {
@@ -32,5 +42,3 @@ _namespace: *"cue-build" | string @tag(namespace)
 		namespace: _namespace
 	}
 }
-
-kubernetes: [#deployment, #serviceAccount]

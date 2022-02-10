@@ -297,8 +297,28 @@ func (r *CueInstanceReconciler) reconcile(
 		), err
 	}
 
+	// check module path exists
+	moduleRootPath, err := securejoin.SecureJoin(tmpDir, cueInstance.Spec.ModuleRoot)
+	if err != nil {
+		return cuev1alpha1.CueInstanceNotReady(
+			cueInstance,
+			revision,
+			cuev1alpha1.ArtifactFailedReason,
+			err.Error(),
+		), err
+	}
+
+	if _, err := os.Stat(moduleRootPath); err != nil {
+		err = fmt.Errorf("cueInstance module root path not found: %w", err)
+		return cuev1alpha1.CueInstanceNotReady(
+			cueInstance,
+			revision,
+			cuev1alpha1.ArtifactFailedReason,
+			err.Error(),
+		), err
+	}
 	// check build path exists
-	dirPath, err := securejoin.SecureJoin(tmpDir, cueInstance.Spec.Path)
+	dirPath, err := securejoin.SecureJoin(moduleRootPath, cueInstance.Spec.Path)
 	if err != nil {
 		return cuev1alpha1.CueInstanceNotReady(
 			cueInstance,
@@ -332,7 +352,7 @@ func (r *CueInstanceReconciler) reconcile(
 	}
 
 	// build the cueInstance
-	resources, err := r.build(ctx, dirPath, &cueInstance)
+	resources, err := r.build(ctx, moduleRootPath, dirPath, &cueInstance)
 	if err != nil {
 		return cuev1alpha1.CueInstanceNotReady(
 			cueInstance,
@@ -442,7 +462,7 @@ func (r *CueInstanceReconciler) reconcile(
 	), err
 }
 
-func (r *CueInstanceReconciler) build(ctx context.Context, dir string, instance *cuev1alpha1.CueInstance) ([]byte, error) {
+func (r *CueInstanceReconciler) build(ctx context.Context, root, dir string, instance *cuev1alpha1.CueInstance) ([]byte, error) {
 	log := ctrl.LoggerFrom(ctx)
 	cctx := cuecontext.New()
 
@@ -453,8 +473,9 @@ func (r *CueInstanceReconciler) build(ctx context.Context, dir string, instance 
 	}
 
 	insts := load.Instances([]string{}, &load.Config{
-		Dir:  dir,
-		Tags: tags,
+		ModuleRoot: root,
+		Dir:        dir,
+		Tags:       tags,
 	})
 
 	var result bytes.Buffer
@@ -475,52 +496,22 @@ func (r *CueInstanceReconciler) build(ctx context.Context, dir string, instance 
 
 		if len(instance.Spec.Exprs) > 0 {
 			for _, e := range instance.Spec.Exprs {
-				var (
-					data []byte
-					err  error
-				)
 				expr := value.LookupPath(cue.ParsePath(e))
-				switch expr.Kind() {
-				case cue.ListKind:
-					items, err := expr.List()
-					if err != nil {
-						return nil, err
-					}
-					data, err = yaml.EncodeStream(items)
-					if err != nil {
-						return nil, err
-					}
-				default:
-					data, err = yaml.Encode(expr)
-					if err != nil {
-						return nil, err
-					}
+
+				data, err := cueEncodeYAML(expr)
+				if err != nil {
+					return nil, err
 				}
+
 				_, err = result.Write(data)
 				if err != nil {
 					return nil, err
 				}
 			}
 		} else {
-			var (
-				data []byte
-				err  error
-			)
-			switch value.Kind() {
-			case cue.ListKind:
-				items, err := value.List()
-				if err != nil {
-					return nil, err
-				}
-				data, err = yaml.EncodeStream(items)
-				if err != nil {
-					return nil, err
-				}
-			default:
-				data, err = yaml.Encode(value)
-				if err != nil {
-					return nil, err
-				}
+			data, err := cueEncodeYAML(value)
+			if err != nil {
+				return nil, err
 			}
 			_, err = result.Write(data)
 			if err != nil {
@@ -530,6 +521,33 @@ func (r *CueInstanceReconciler) build(ctx context.Context, dir string, instance 
 	}
 
 	return result.Bytes(), nil
+}
+
+func cueEncodeYAML(value cue.Value) ([]byte, error) {
+	var (
+		err  error
+		data []byte
+	)
+	switch value.Kind() {
+	case cue.ListKind:
+		items, err := value.List()
+		if err != nil {
+			return nil, err
+		}
+		data, err = yaml.EncodeStream(items)
+		if err != nil {
+			return nil, err
+		}
+	case cue.StructKind:
+		data, err = yaml.Encode(value)
+		if err != nil {
+			return nil, err
+		}
+	default:
+		return nil, fmt.Errorf("unsupported Kind %s", value.Kind())
+	}
+	data = append(data, []byte("\n---\n")...)
+	return data, nil
 }
 
 func (r *CueInstanceReconciler) apply(ctx context.Context, manager *ssa.ResourceManager, cueInstance cuev1alpha1.CueInstance, revision string, objects []*unstructured.Unstructured) (bool, *ssa.ChangeSet, error) {
