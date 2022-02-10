@@ -30,6 +30,11 @@ import (
 	"strings"
 	"time"
 
+	"cuelang.org/go/cue"
+	"cuelang.org/go/cue/cuecontext"
+	"cuelang.org/go/cue/load"
+	"cuelang.org/go/encoding/yaml"
+	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/runtime/acl"
 	"github.com/fluxcd/pkg/runtime/events"
@@ -49,7 +54,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
@@ -127,19 +131,405 @@ func (r *CueInstanceReconciler) SetupWithManager(mgr ctrl.Manager, opts CueInsta
 
 // Reconcile is the main reconciler loop.
 func (r *CueInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	log := ctrl.LoggerFrom(ctx)
+	reconcileStart := time.Now()
 
-	// TODO(user): your logic here
+	var cueInstance cuev1alpha1.CueInstance
+	if err := r.Get(ctx, req.NamespacedName, &cueInstance); err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
 
-	return ctrl.Result{}, nil
+	// Record suspended status metric
+	defer r.recordSuspension(ctx, cueInstance)
+
+	// Add our finalizer if it does not exist
+	if !controllerutil.ContainsFinalizer(&cueInstance, cuev1alpha1.CueInstanceFinalizer) {
+		patch := client.MergeFrom(cueInstance.DeepCopy())
+		controllerutil.AddFinalizer(&cueInstance, cuev1alpha1.CueInstanceFinalizer)
+		if err := r.Patch(ctx, &cueInstance, patch); err != nil {
+			log.Error(err, "unable to register finalizer")
+			return ctrl.Result{}, err
+		}
+	}
+
+	// Examine if the object is under deletion
+	if !cueInstance.ObjectMeta.DeletionTimestamp.IsZero() {
+		return r.finalize(ctx, cueInstance)
+	}
+
+	// Return early if the CueInstance is suspended.
+	if cueInstance.Spec.Suspend {
+		log.Info("Reconciliation is suspended for this object")
+		return ctrl.Result{}, nil
+	}
+
+	// resolve source reference
+	source, err := r.getSource(ctx, cueInstance)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			msg := fmt.Sprintf("Source '%s' not found", cueInstance.Spec.SourceRef.String())
+			cueInstance = cuev1alpha1.CueInstanceNotReady(cueInstance, "", cuev1alpha1.ArtifactFailedReason, msg)
+			if err := r.patchStatus(ctx, req, cueInstance.Status); err != nil {
+				return ctrl.Result{Requeue: true}, err
+			}
+			r.recordReadiness(ctx, cueInstance)
+			log.Info(msg)
+			// do not requeue immediately, when the source is created the watcher should trigger a reconciliation
+			return ctrl.Result{RequeueAfter: cueInstance.GetRetryInterval()}, nil
+		}
+
+		// retry on transient errors
+		return ctrl.Result{Requeue: true}, err
+
+	}
+
+	if source.GetArtifact() == nil {
+		msg := "Source is not ready, artifact not found"
+		cueInstance = cuev1alpha1.CueInstanceNotReady(cueInstance, "", cuev1alpha1.ArtifactFailedReason, msg)
+		if err := r.patchStatus(ctx, req, cueInstance.Status); err != nil {
+			log.Error(err, "unable to update status for artifact not found")
+			return ctrl.Result{Requeue: true}, err
+		}
+		r.recordReadiness(ctx, cueInstance)
+		log.Info(msg)
+		// do not requeue immediately, when the artifact is created the watcher should trigger a reconciliation
+		return ctrl.Result{RequeueAfter: cueInstance.GetRetryInterval()}, nil
+	}
+
+	// check dependencies
+	if len(cueInstance.Spec.DependsOn) > 0 {
+		if err := r.checkDependencies(source, cueInstance); err != nil {
+			cueInstance = cuev1alpha1.CueInstanceNotReady(
+				cueInstance, source.GetArtifact().Revision, meta.DependencyNotReadyReason, err.Error())
+			if err := r.patchStatus(ctx, req, cueInstance.Status); err != nil {
+				log.Error(err, "unable to update status for dependency not ready")
+				return ctrl.Result{Requeue: true}, err
+			}
+			// we can't rely on exponential backoff because it will prolong the execution too much,
+			// instead we requeue on a fix interval.
+			msg := fmt.Sprintf("Dependencies do not meet ready condition, retrying in %s", r.requeueDependency.String())
+			log.Info(msg)
+			r.event(ctx, cueInstance, source.GetArtifact().Revision, events.EventSeverityInfo, msg, nil)
+			r.recordReadiness(ctx, cueInstance)
+			return ctrl.Result{RequeueAfter: r.requeueDependency}, nil
+		}
+		log.Info("All dependencies are ready, proceeding with reconciliation")
+	}
+
+	// record reconciliation duration
+	if r.MetricsRecorder != nil {
+		objRef, err := reference.GetReference(r.Scheme, &cueInstance)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		defer r.MetricsRecorder.RecordDuration(*objRef, reconcileStart)
+	}
+
+	// set the reconciliation status to progressing
+	cueInstance = cuev1alpha1.CueInstanceProgressing(cueInstance, "reconciliation in progress")
+	if err := r.patchStatus(ctx, req, cueInstance.Status); err != nil {
+		return ctrl.Result{Requeue: true}, err
+	}
+	r.recordReadiness(ctx, cueInstance)
+
+	// reconcile cueInstance by applying the latest revision
+	reconciledCueInstance, reconcileErr := r.reconcile(ctx, *cueInstance.DeepCopy(), source)
+	if err := r.patchStatus(ctx, req, reconciledCueInstance.Status); err != nil {
+		return ctrl.Result{Requeue: true}, err
+	}
+	r.recordReadiness(ctx, reconciledCueInstance)
+
+	// broadcast the reconciliation failure and requeue at the specified retry interval
+	if reconcileErr != nil {
+		log.Error(reconcileErr, fmt.Sprintf("Reconciliation failed after %s, next try in %s",
+			time.Since(reconcileStart).String(),
+			cueInstance.GetRetryInterval().String()),
+			"revision",
+			source.GetArtifact().Revision)
+		r.event(ctx, reconciledCueInstance, source.GetArtifact().Revision, events.EventSeverityError,
+			reconcileErr.Error(), nil)
+		return ctrl.Result{RequeueAfter: cueInstance.GetRetryInterval()}, nil
+	}
+
+	// broadcast the reconciliation result and requeue at the specified interval
+	msg := fmt.Sprintf("Reconciliation finished in %s, next run in %s",
+		time.Since(reconcileStart).String(),
+		cueInstance.Spec.Interval.Duration.String())
+	log.Info(msg, "revision", source.GetArtifact().Revision)
+	r.event(ctx, reconciledCueInstance, source.GetArtifact().Revision, events.EventSeverityInfo,
+		msg, map[string]string{"commit_status": "update"})
+
+	return ctrl.Result{RequeueAfter: cueInstance.Spec.Interval.Duration}, nil
 }
 
-func (r *CueInstanceReconciler) reconcile(ctx context.Context, obj *cuev1alpha1.CueInstance) error {
-	return nil
+func (r *CueInstanceReconciler) reconcile(
+	ctx context.Context,
+	cueInstance cuev1alpha1.CueInstance,
+	source sourcev1.Source) (cuev1alpha1.CueInstance, error) {
+	// record the value of the reconciliation request, if any
+	if v, ok := meta.ReconcileAnnotationValue(cueInstance.GetAnnotations()); ok {
+		cueInstance.Status.SetLastHandledReconcileRequest(v)
+	}
+
+	revision := source.GetArtifact().Revision
+
+	// create tmp dir
+	tmpDir, err := os.MkdirTemp("", cueInstance.Name)
+	if err != nil {
+		err = fmt.Errorf("tmp dir error: %w", err)
+		return cuev1alpha1.CueInstanceNotReady(
+			cueInstance,
+			revision,
+			sourcev1.StorageOperationFailedReason,
+			err.Error(),
+		), err
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// download artifact and extract files
+	err = r.download(source.GetArtifact(), tmpDir)
+	if err != nil {
+		return cuev1alpha1.CueInstanceNotReady(
+			cueInstance,
+			revision,
+			cuev1alpha1.ArtifactFailedReason,
+			err.Error(),
+		), err
+	}
+
+	// check build path exists
+	dirPath, err := securejoin.SecureJoin(tmpDir, cueInstance.Spec.Path)
+	if err != nil {
+		return cuev1alpha1.CueInstanceNotReady(
+			cueInstance,
+			revision,
+			cuev1alpha1.ArtifactFailedReason,
+			err.Error(),
+		), err
+	}
+
+	if _, err := os.Stat(dirPath); err != nil {
+		err = fmt.Errorf("cueInstance path not found: %w", err)
+		return cuev1alpha1.CueInstanceNotReady(
+			cueInstance,
+			revision,
+			cuev1alpha1.ArtifactFailedReason,
+			err.Error(),
+		), err
+	}
+
+	// setup a Kubernetes client
+	// setup the Kubernetes client for impersonation
+	impersonation := NewCueInstanceImpersonation(cueInstance, r.Client, r.StatusPoller, dirPath)
+	kubeClient, statusPoller, err := impersonation.GetClient(ctx)
+	if err != nil {
+		return cuev1alpha1.CueInstanceNotReady(
+			cueInstance,
+			revision,
+			meta.ReconciliationFailedReason,
+			err.Error(),
+		), fmt.Errorf("failed to build kube client: %w", err)
+	}
+
+	// build the cueInstance
+	resources, err := r.build(ctx, dirPath, &cueInstance)
+	if err != nil {
+		return cuev1alpha1.CueInstanceNotReady(
+			cueInstance,
+			revision,
+			cuev1alpha1.BuildFailedReason,
+			err.Error(),
+		), err
+	}
+
+	// convert the build result into Kubernetes unstructured objects
+	objects, err := ssa.ReadObjects(bytes.NewReader(resources))
+	if err != nil {
+		return cuev1alpha1.CueInstanceNotReady(
+			cueInstance,
+			revision,
+			cuev1alpha1.BuildFailedReason,
+			err.Error(),
+		), err
+	}
+
+	// create a snapshot of the current inventory
+	oldStatus := cueInstance.Status.DeepCopy()
+
+	// create the server-side apply manager
+	resourceManager := ssa.NewResourceManager(kubeClient, statusPoller, ssa.Owner{
+		Field: r.ControllerName,
+		Group: cuev1alpha1.GroupVersion.Group,
+	})
+	resourceManager.SetOwnerLabels(objects, cueInstance.GetName(), cueInstance.GetNamespace())
+
+	// validate and apply resources in stages
+	_, changeSet, err := r.apply(ctx, resourceManager, cueInstance, revision, objects)
+	if err != nil {
+		return cuev1alpha1.CueInstanceNotReady(
+			cueInstance,
+			revision,
+			meta.ReconciliationFailedReason,
+			err.Error(),
+		), err
+	}
+
+	// create an inventory of objects to be reconciled
+	newInventory := NewInventory()
+	err = AddObjectsToInventory(newInventory, changeSet)
+	if err != nil {
+		return cuev1alpha1.CueInstanceNotReady(
+			cueInstance,
+			revision,
+			meta.ReconciliationFailedReason,
+			err.Error(),
+		), err
+	}
+
+	// detect stale objects which are subject to garbage collection
+	var staleObjects []*unstructured.Unstructured
+	if oldStatus.Inventory != nil {
+		diffObjects, err := DiffInventory(oldStatus.Inventory, newInventory)
+		if err != nil {
+			return cuev1alpha1.CueInstanceNotReady(
+				cueInstance,
+				revision,
+				meta.ReconciliationFailedReason,
+				err.Error(),
+			), err
+		}
+
+		// TODO: remove this workaround after kustomize-controller 0.18 release
+		// skip objects that were wrongly marked as namespaced
+		// https://github.com/fluxcd/kustomize-controller/issues/466
+		newObjects, _ := ListObjectsInInventory(newInventory)
+		for _, obj := range diffObjects {
+			preserve := false
+			if obj.GetNamespace() != "" {
+				for _, newObj := range newObjects {
+					if newObj.GetNamespace() == "" &&
+						obj.GetKind() == newObj.GetKind() &&
+						obj.GetAPIVersion() == newObj.GetAPIVersion() &&
+						obj.GetName() == newObj.GetName() {
+						preserve = true
+						break
+					}
+				}
+			}
+			if !preserve {
+				staleObjects = append(staleObjects, obj)
+			}
+		}
+	}
+
+	// run garbage collection for stale objects that do not have pruning disabled
+	if _, err := r.prune(ctx, resourceManager, cueInstance, revision, staleObjects); err != nil {
+		return cuev1alpha1.CueInstanceNotReadyInventory(
+			cueInstance,
+			newInventory,
+			revision,
+			cuev1alpha1.PruneFailedReason,
+			err.Error(),
+		), err
+	}
+
+	return cuev1alpha1.CueInstanceReadyInventory(
+		cueInstance,
+		newInventory,
+		revision,
+		meta.ReconciliationSucceededReason,
+		fmt.Sprintf("Applied revision: %s", revision),
+	), err
 }
 
-func (r *CueInstanceReconciler) build(ctx context.Context, dir string, tags map[string]string) ([]byte, error) {
-	return nil, nil
+func (r *CueInstanceReconciler) build(ctx context.Context, dir string, instance *cuev1alpha1.CueInstance) ([]byte, error) {
+	log := ctrl.LoggerFrom(ctx)
+	cctx := cuecontext.New()
+
+	//TODO: this shold be possible using TagVars rather than string interpolations
+	tags := make([]string, len(instance.Spec.Tags))
+	for i, v := range instance.Spec.Tags {
+		tags[i] = fmt.Sprintf("%s=%s", v.Name, v.Value)
+	}
+
+	insts := load.Instances([]string{}, &load.Config{
+		Dir:  dir,
+		Tags: tags,
+	})
+
+	var result bytes.Buffer
+	for _, i := range insts {
+		if i.Err != nil {
+			return nil, i.Err
+		}
+
+		value := cctx.BuildInstance(i)
+		if value.Err() != nil {
+			return nil, value.Err()
+		}
+
+		if err := value.Validate(); err != nil {
+			log.Error(err, "validation error")
+			return nil, err
+		}
+
+		if len(instance.Spec.Exprs) > 0 {
+			for _, e := range instance.Spec.Exprs {
+				var (
+					data []byte
+					err  error
+				)
+				expr := value.LookupPath(cue.ParsePath(e))
+				switch expr.Kind() {
+				case cue.ListKind:
+					items, err := expr.List()
+					if err != nil {
+						return nil, err
+					}
+					data, err = yaml.EncodeStream(items)
+					if err != nil {
+						return nil, err
+					}
+				default:
+					data, err = yaml.Encode(expr)
+					if err != nil {
+						return nil, err
+					}
+				}
+				_, err = result.Write(data)
+				if err != nil {
+					return nil, err
+				}
+			}
+		} else {
+			var (
+				data []byte
+				err  error
+			)
+			switch value.Kind() {
+			case cue.ListKind:
+				items, err := value.List()
+				if err != nil {
+					return nil, err
+				}
+				data, err = yaml.EncodeStream(items)
+				if err != nil {
+					return nil, err
+				}
+			default:
+				data, err = yaml.Encode(value)
+				if err != nil {
+					return nil, err
+				}
+			}
+			_, err = result.Write(data)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return result.Bytes(), nil
 }
 
 func (r *CueInstanceReconciler) apply(ctx context.Context, manager *ssa.ResourceManager, cueInstance cuev1alpha1.CueInstance, revision string, objects []*unstructured.Unstructured) (bool, *ssa.ChangeSet, error) {

@@ -40,11 +40,14 @@ type CueInstanceSpec struct {
 	// +required
 	SourceRef CrossNamespaceSourceReference `json:"sourceRef"`
 
-	// +optional
-	Inject []InjectItem `json:"inject,omitempty"`
+	// +required
+	Path string `json:"path"`
 
 	// +optional
-	Path string `json:"path"`
+	Tags []TagVar `json:"tags,omitempty"`
+
+	// +optional
+	Exprs []string `json:"expressions,omitempty"`
 
 	// +optional
 	DependsOn []dependency.CrossNamespaceDependencyReference `json:"dependsOn,omitempty"`
@@ -86,9 +89,10 @@ type CueInstanceSpec struct {
 	Force bool `json:"force,omitempty"`
 }
 
-type InjectItem struct {
+type TagVar struct {
 	// +required
 	Name string `json:"name"`
+
 	// +required
 	Value string `json:"value"`
 }
@@ -139,6 +143,47 @@ func (in *CueInstance) GetStatusConditions() *[]metav1.Condition {
 	return &in.Status.Conditions
 }
 
+// CueInstanceProgressing resets the conditions of the given CueInstance to a single
+// ReadyCondition with status ConditionUnknown.
+func CueInstanceProgressing(k CueInstance, message string) CueInstance {
+	meta.SetResourceCondition(&k, meta.ReadyCondition, metav1.ConditionUnknown, meta.ProgressingReason, message)
+	return k
+}
+
+// SetCueInstanceReadiness sets the ReadyCondition, ObservedGeneration, and LastAttemptedRevision, on the CueInstance.
+func SetCueInstanceReadiness(k *CueInstance, status metav1.ConditionStatus, reason, message string, revision string) {
+	meta.SetResourceCondition(k, meta.ReadyCondition, status, reason, trimString(message, MaxConditionMessageLength))
+	k.Status.ObservedGeneration = k.Generation
+	k.Status.LastAttemptedRevision = revision
+}
+
+// CueInstanceNotReady registers a failed apply attempt of the given CueInstance.
+func CueInstanceNotReady(k CueInstance, revision, reason, message string) CueInstance {
+	SetCueInstanceReadiness(&k, metav1.ConditionFalse, reason, trimString(message, MaxConditionMessageLength), revision)
+	if revision != "" {
+		k.Status.LastAttemptedRevision = revision
+	}
+	return k
+}
+
+// CueInstanceNotReadyInventory registers a failed apply attempt of the given CueInstance.
+func CueInstanceNotReadyInventory(k CueInstance, inventory *ResourceInventory, revision, reason, message string) CueInstance {
+	SetCueInstanceReadiness(&k, metav1.ConditionFalse, reason, trimString(message, MaxConditionMessageLength), revision)
+	if revision != "" {
+		k.Status.LastAttemptedRevision = revision
+	}
+	k.Status.Inventory = inventory
+	return k
+}
+
+// CueInstanceReadyInventory registers a successful apply attempt of the given CueInstance.
+func CueInstanceReadyInventory(k CueInstance, inventory *ResourceInventory, revision, reason, message string) CueInstance {
+	SetCueInstanceReadiness(&k, metav1.ConditionTrue, reason, trimString(message, MaxConditionMessageLength), revision)
+	k.Status.Inventory = inventory
+	k.Status.LastAppliedRevision = revision
+	return k
+}
+
 // CueInstanceStatus defines the observed state of CueInstance
 type CueInstanceStatus struct {
 	meta.ReconcileRequestStatus `json:",inline"`
@@ -187,4 +232,12 @@ type CueInstanceList struct {
 
 func init() {
 	SchemeBuilder.Register(&CueInstance{}, &CueInstanceList{})
+}
+
+func trimString(str string, limit int) string {
+	if len(str) <= limit {
+		return str
+	}
+
+	return str[0:limit] + "..."
 }

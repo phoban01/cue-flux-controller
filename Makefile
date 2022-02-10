@@ -1,6 +1,10 @@
-
 # Image URL to use all building/pushing image targets
 IMG ?= controller:latest
+
+# Produce CRDs that work back to Kubernetes 1.16
+CRD_OPTIONS ?= crd:crdVersions=v1
+SOURCE_VER ?= v0.21.2
+
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.23
 
@@ -10,6 +14,13 @@ GOBIN=$(shell go env GOPATH)/bin
 else
 GOBIN=$(shell go env GOBIN)
 endif
+
+# Allows for defining additional Docker buildx arguments, e.g. '--push'.
+BUILD_ARGS ?=
+# Architectures to build images for.
+BUILD_PLATFORMS ?= linux/amd64
+
+ENVTEST_ARCH ?= amd64
 
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # This is a requirement for 'setup-envtest.sh' in the test target.
@@ -55,6 +66,11 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet ./...
 
+ENVTEST = $(shell pwd)/bin/setup-envtest
+.PHONY: envtest
+setup-envtest: ## Download envtest-setup locally if necessary.
+	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
+
 # Download the envtest binaries to testbin
 ENVTEST_ASSETS_DIR=$(shell pwd)/build/testbin
 ENVTEST_KUBERNETES_VERSION?=latest
@@ -64,7 +80,7 @@ install-envtest: setup-envtest
 
 # Run controller tests
 KUBEBUILDER_ASSETS?="$(shell $(ENVTEST) --arch=$(ENVTEST_ARCH) use -i $(ENVTEST_KUBERNETES_VERSION) --bin-dir=$(ENVTEST_ASSETS_DIR) -p path)"
-test: generate fmt vet manifests api-docs download-crd-deps install-envtest
+test: generate fmt vet manifests download-crd-deps install-envtest
 	KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS) go test ./controllers/...  -v -coverprofile cover.out
 
 # Generate API reference documentation

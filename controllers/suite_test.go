@@ -44,8 +44,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	controllerLog "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 func init() {
@@ -57,8 +55,6 @@ const (
 	interval               = time.Second * 1
 	reconciliationInterval = time.Second * 5
 )
-
-const vaultVersion = "1.2.2"
 
 var (
 	reconciler   *CueInstanceReconciler
@@ -78,7 +74,7 @@ func runInContext(registerControllers func(*testenv.Environment), run func() err
 	utilruntime.Must(cuev1alpha1.AddToScheme(scheme.Scheme))
 
 	if debugMode {
-		controllerLog.SetLogger(zap.New(zap.WriteTo(os.Stderr), zap.UseDevMode(false)))
+		// controllerLog.SetLogger(zap.New(zap.WriteTo(os.Stderr), zap.UseDevMode(false)))
 	}
 
 	testEnv = testenv.New(testenv.WithCRDPath(crdPath))

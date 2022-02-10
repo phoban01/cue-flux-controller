@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 	cuev1alpha1 "github.com/phoban01/cue-flux-controller/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -25,7 +26,7 @@ func TestCueInstanceReconciler_BuildInstance(t *testing.T) {
 	err = createKubeConfigSecret(id)
 	g.Expect(err).NotTo(HaveOccurred(), "failed to create kubeconfig secret")
 
-	deployNamespace := "transformers-inline"
+	deployNamespace := "cue-build"
 	err = createNamespace(deployNamespace)
 	g.Expect(err).NotTo(HaveOccurred())
 
@@ -42,9 +43,12 @@ func TestCueInstanceReconciler_BuildInstance(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	cueInstanceKey := types.NamespacedName{
-		Name:      "patch-" + randStringRunes(5),
+		Name:      "inst-" + randStringRunes(5),
 		Namespace: id,
 	}
+
+	tagName := "podinfo" + randStringRunes(5)
+
 	cueInstance := &cuev1alpha1.CueInstance{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cueInstanceKey.Name,
@@ -52,7 +56,16 @@ func TestCueInstanceReconciler_BuildInstance(t *testing.T) {
 		},
 		Spec: cuev1alpha1.CueInstanceSpec{
 			Interval: metav1.Duration{Duration: reconciliationInterval},
-			Path:     "./",
+			Path:     "./testdata/instances/deployment",
+			Exprs: []string{
+				"kubernetes",
+			},
+			Tags: []cuev1alpha1.TagVar{
+				{
+					Name:  "name",
+					Value: tagName,
+				},
+			},
 			KubeConfig: &cuev1alpha1.KubeConfig{
 				SecretRef: meta.LocalObjectReference{
 					Name: "kubeconfig",
@@ -76,7 +89,13 @@ func TestCueInstanceReconciler_BuildInstance(t *testing.T) {
 
 	deployment := &appsv1.Deployment{}
 	g.Expect(k8sClient.Get(context.TODO(), types.NamespacedName{
-		Name:      "test-podinfo-transform",
+		Name:      tagName,
 		Namespace: deployNamespace,
 	}, deployment)).To(Succeed())
+
+	serviceAccount := &corev1.ServiceAccount{}
+	g.Expect(k8sClient.Get(context.TODO(), types.NamespacedName{
+		Name:      tagName,
+		Namespace: deployNamespace,
+	}, serviceAccount)).To(Succeed())
 }

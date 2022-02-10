@@ -50,23 +50,15 @@ spec:
                   - name
                   type: object
                 type: array
+              expressions:
+                items:
+                  type: string
+                type: array
               force:
                 default: false
                 description: Force instructs the controller to recreate resources
                   when patching fails due to an immutable field change.
                 type: boolean
-              inject:
-                items:
-                  properties:
-                    name:
-                      type: string
-                    value:
-                      type: string
-                  required:
-                  - name
-                  - value
-                  type: object
-                type: array
               interval:
                 type: string
               kubeConfig:
@@ -131,12 +123,25 @@ spec:
                   cue executions, it does not apply to already started executions.
                   Defaults to false.
                 type: boolean
+              tags:
+                items:
+                  properties:
+                    name:
+                      type: string
+                    value:
+                      type: string
+                  required:
+                  - name
+                  - value
+                  type: object
+                type: array
               timeout:
                 description: Timeout for validation, apply and health checking operations.
                   Defaults to 'Interval' duration.
                 type: string
             required:
             - interval
+            - path
             - prune
             - sourceRef
             type: object
