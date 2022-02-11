@@ -462,11 +462,13 @@ func (r *CueInstanceReconciler) reconcile(
 	), err
 }
 
-func (r *CueInstanceReconciler) build(ctx context.Context, root, dir string, instance *cuev1alpha1.CueInstance) ([]byte, error) {
+func (r *CueInstanceReconciler) build(ctx context.Context,
+	root, dir string,
+	instance *cuev1alpha1.CueInstance) ([]byte, error) {
 	log := ctrl.LoggerFrom(ctx)
 	cctx := cuecontext.New()
 
-	//TODO: this shold be possible using TagVars rather than string interpolations
+	//TODO: this should be possible using TagVars rather than string interpolations
 	tags := make([]string, len(instance.Spec.Tags))
 	for i, v := range instance.Spec.Tags {
 		tags[i] = fmt.Sprintf("%s=%s", v.Name, v.Value)
@@ -489,9 +491,19 @@ func (r *CueInstanceReconciler) build(ctx context.Context, root, dir string, ins
 			return nil, value.Err()
 		}
 
-		if err := value.Validate(); err != nil {
-			log.Error(err, "validation error")
-			return nil, err
+		err := value.Validate()
+		if err != nil {
+			switch instance.Spec.Policy {
+			case cuev1alpha1.PolicyRuleIgnore:
+				log.Info("validation error", "msg", err)
+			case cuev1alpha1.PolicyRuleAudit:
+				log.Error(err, "validation error")
+				// log event
+			case cuev1alpha1.PolicyRuleDeny:
+				log.Error(err, "validation error")
+				// log event
+				return nil, err
+			}
 		}
 
 		if len(instance.Spec.Exprs) > 0 {

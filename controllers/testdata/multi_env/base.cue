@@ -1,9 +1,8 @@
 package kube
 
-env: string @tag(env)
-
-_name:      string
-_namespace: string
+env:        *"dev" | string     @tag(env,short=dev|stg|prd)
+_name:      *"podinfo" | string @tag(name)
+_namespace: *"default" | string @tag(namespace)
 
 kubernetes: deployment: {
 	apiVersion: "apps/v1"
@@ -23,12 +22,7 @@ kubernetes: deployment: {
 					name:  _name
 					image: _name
 				},
-				if env != "prd" {
-					{
-						name:  "sidecar"
-						image: "proxy:latest"
-					}
-				},
+				...,
 			]
 		}
 	}

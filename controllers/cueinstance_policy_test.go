@@ -9,14 +9,12 @@ import (
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
 	. "github.com/onsi/gomega"
 	cuev1alpha1 "github.com/phoban01/cue-flux-controller/api/v1alpha1"
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func XTestCueInstanceReconciler_BuildInstance(t *testing.T) {
+func TestCueInstanceReconciler_BuildInstancePolicy(t *testing.T) {
 	g := NewWithT(t)
 	id := "builder-" + randStringRunes(5)
 
@@ -26,12 +24,12 @@ func XTestCueInstanceReconciler_BuildInstance(t *testing.T) {
 	err = createKubeConfigSecret(id)
 	g.Expect(err).NotTo(HaveOccurred(), "failed to create kubeconfig secret")
 
-	deployNamespace := "cue-build"
+	deployNamespace := "cue-build-" + randStringRunes(4)
 	err = createNamespace(deployNamespace)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	artifactFile := "instance-" + randStringRunes(5)
-	artifactChecksum, err := createArtifact(testServer, "testdata/multi_env", artifactFile)
+	artifactChecksum, err := createArtifact(testServer, "testdata/policy", artifactFile)
 	g.Expect(err).ToNot(HaveOccurred())
 
 	repositoryName := types.NamespacedName{
@@ -56,11 +54,9 @@ func XTestCueInstanceReconciler_BuildInstance(t *testing.T) {
 		},
 		Spec: cuev1alpha1.CueInstanceSpec{
 			Interval:   metav1.Duration{Duration: reconciliationInterval},
-			ModuleRoot: "./testdata/multi_env",
-			Path:       "env/dev",
-			Exprs: []string{
-				"k8s",
-			},
+			ModuleRoot: "./testdata/policy",
+			Path:       ".",
+			Policy:     cuev1alpha1.PolicyRuleDeny,
 			Tags: []cuev1alpha1.TagVar{
 				{
 					Name:  "name",
@@ -69,6 +65,10 @@ func XTestCueInstanceReconciler_BuildInstance(t *testing.T) {
 				{
 					Name:  "namespace",
 					Value: deployNamespace,
+				},
+				{
+					Name:  "port",
+					Value: "80",
 				},
 			},
 			KubeConfig: &cuev1alpha1.KubeConfig{
@@ -86,21 +86,18 @@ func XTestCueInstanceReconciler_BuildInstance(t *testing.T) {
 
 	g.Expect(k8sClient.Create(context.TODO(), cueInstance)).To(Succeed())
 
+	var obj cuev1alpha1.CueInstance
+	g.Eventually(func() bool {
+		_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cueInstance), &obj)
+		return obj.Status.LastAppliedRevision == "main/"+artifactChecksum
+	}, timeout, time.Second).Should(BeFalse())
+
+	obj.Spec.Policy = cuev1alpha1.PolicyRuleIgnore
+	g.Expect(k8sClient.Update(context.TODO(), &obj)).To(Succeed())
+
 	g.Eventually(func() bool {
 		var obj cuev1alpha1.CueInstance
 		_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cueInstance), &obj)
 		return obj.Status.LastAppliedRevision == "main/"+artifactChecksum
 	}, timeout, time.Second).Should(BeTrue())
-
-	deployment := &appsv1.Deployment{}
-	g.Expect(k8sClient.Get(context.TODO(), types.NamespacedName{
-		Name:      tagName,
-		Namespace: deployNamespace,
-	}, deployment)).To(Succeed())
-
-	serviceAccount := &corev1.ServiceAccount{}
-	g.Expect(k8sClient.Get(context.TODO(), types.NamespacedName{
-		Name:      tagName,
-		Namespace: deployNamespace,
-	}, serviceAccount)).To(Succeed())
 }

@@ -39,7 +39,6 @@ type CueInstanceSpec struct {
 
 	// +required
 	SourceRef CrossNamespaceSourceReference `json:"sourceRef"`
-
 	// +required
 	Path string `json:"path"`
 
@@ -55,6 +54,9 @@ type CueInstanceSpec struct {
 
 	// +optional
 	DependsOn []dependency.CrossNamespaceDependencyReference `json:"dependsOn,omitempty"`
+
+	// +optional
+	Policy PolicyRule `json:"policy,omitempty"`
 
 	// Prune enables garbage collection.
 	// +required

@@ -3,4 +3,14 @@ kind: CueInstance
 metadata:
   name: cueinstance-sample
 spec:
-  # TODO(user): Add fields here
+  path: "./env/dev"
+  exprs:
+    - k8s
+  tags:
+    - name: env
+      value: dev
+  sourceRef:
+  - kind: GitRepository
+    name: my-repo
+  prune: true
+  interval: 5m
