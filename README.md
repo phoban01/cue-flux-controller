@@ -17,6 +17,7 @@ The cue-controller is **heavily** based on the codebase for [kustomize-controlle
 - [x] Impersonation via ServiceAccount
 - [x] Remote cluster access via kubeconfig
 - [x] Prune Kubernetes resources removed from the CUE source
+- [ ] Policy-mode (use CUE only for schema validation, with configurable failure modes)
 - [ ] Validation failure notifications
 - [ ] Support for non-CUE files
 - [ ] Health checks for deployed workloads
