@@ -21,6 +21,7 @@ import (
 
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/runtime/dependency"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -47,7 +48,11 @@ type CueInstanceSpec struct {
 	ModuleRoot string `json:"moduleRoot,omitempty"`
 
 	// +optional
-	Tags []TagVar `json:"tags,omitempty"`
+	Tags map[string]string `json:"tags,omitempty"`
+
+	// TagVars are vars that will be available to use in tags
+	// +optional
+	TagVars []TagVar `json:"tagVars,omitempty"`
 
 	// +optional
 	Exprs []string `json:"expressions,omitempty"`
@@ -97,7 +102,7 @@ type CueInstanceSpec struct {
 
 type TagVar struct {
 	// +required
-	Name string `json:"name"`
+	Key string `json:"key"`
 
 	// +required
 	Value string `json:"value"`

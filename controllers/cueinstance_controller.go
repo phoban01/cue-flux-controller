@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"cuelang.org/go/cue"
+	"cuelang.org/go/cue/ast"
 	"cuelang.org/go/cue/cuecontext"
 	"cuelang.org/go/cue/load"
 	"cuelang.org/go/encoding/yaml"
@@ -468,67 +469,79 @@ func (r *CueInstanceReconciler) build(ctx context.Context,
 	log := ctrl.LoggerFrom(ctx)
 	cctx := cuecontext.New()
 
-	//TODO: this should be possible using TagVars rather than string interpolations
-	tags := make([]string, len(instance.Spec.Tags))
-	for i, v := range instance.Spec.Tags {
-		tags[i] = fmt.Sprintf("%s=%s", v.Name, v.Value)
+	tags := make([]string, 0, len(instance.Spec.Tags))
+	for k, v := range instance.Spec.Tags {
+		tags = append(tags, fmt.Sprintf("%s=%s", k, v))
 	}
 
-	insts := load.Instances([]string{}, &load.Config{
+	tagVars := make(map[string]load.TagVar, len(instance.Spec.TagVars))
+	for _, t := range instance.Spec.TagVars {
+		tagVars[t.Key] = load.TagVar{
+			Func: func() (ast.Expr, error) {
+				return ast.NewString(t.Value), nil
+			},
+		}
+	}
+
+	ix := load.Instances([]string{}, &load.Config{
 		ModuleRoot: root,
 		Dir:        dir,
 		Tags:       tags,
+		TagVars:    tagVars,
 	})
+	if len(ix) == 0 {
+		return nil, fmt.Errorf("no instances found")
+	}
+
+	inst := ix[0]
+
+	if inst.Err != nil {
+		return nil, inst.Err
+	}
+
+	value := cctx.BuildInstance(inst)
+	if value.Err() != nil {
+		return nil, value.Err()
+	}
+
+	err := value.Validate()
+	if err != nil {
+		switch instance.Spec.Policy {
+		case cuev1alpha1.PolicyRuleIgnore:
+			log.Info("validation error", "msg", err)
+		case cuev1alpha1.PolicyRuleAudit:
+			log.Error(err, "validation error")
+			// log event
+		case cuev1alpha1.PolicyRuleDeny:
+			log.Error(err, "validation error")
+			// log event
+			return nil, err
+		}
+	}
 
 	var result bytes.Buffer
-	for _, i := range insts {
-		if i.Err != nil {
-			return nil, i.Err
-		}
+	if len(instance.Spec.Exprs) > 0 {
+		for _, e := range instance.Spec.Exprs {
+			expr := value.LookupPath(cue.ParsePath(e))
 
-		value := cctx.BuildInstance(i)
-		if value.Err() != nil {
-			return nil, value.Err()
-		}
-
-		err := value.Validate()
-		if err != nil {
-			switch instance.Spec.Policy {
-			case cuev1alpha1.PolicyRuleIgnore:
-				log.Info("validation error", "msg", err)
-			case cuev1alpha1.PolicyRuleAudit:
-				log.Error(err, "validation error")
-				// log event
-			case cuev1alpha1.PolicyRuleDeny:
-				log.Error(err, "validation error")
-				// log event
-				return nil, err
-			}
-		}
-
-		if len(instance.Spec.Exprs) > 0 {
-			for _, e := range instance.Spec.Exprs {
-				expr := value.LookupPath(cue.ParsePath(e))
-
-				data, err := cueEncodeYAML(expr)
-				if err != nil {
-					return nil, err
-				}
-
-				_, err = result.Write(data)
-				if err != nil {
-					return nil, err
-				}
-			}
-		} else {
-			data, err := cueEncodeYAML(value)
+			data, err := cueEncodeYAML(expr)
 			if err != nil {
 				return nil, err
 			}
+
 			_, err = result.Write(data)
 			if err != nil {
 				return nil, err
 			}
+		}
+	} else {
+		data, err := cueEncodeYAML(value)
+		if err != nil {
+			return nil, err
+		}
+		_, err = result.Write(data)
+		if err != nil {
+			return nil, err
 		}
 	}
 

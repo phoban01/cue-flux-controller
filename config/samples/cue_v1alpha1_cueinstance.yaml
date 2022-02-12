@@ -3,14 +3,14 @@ kind: CueInstance
 metadata:
   name: cueinstance-sample
 spec:
-  path: "./env/dev"
-  exprs:
-    - k8s
+  paths: "./cluster-01/dev/tenant-01"
+  expressions:
+  - out
   tags:
-    - name: env
-      value: dev
+    image: nginx
+    dev: true
   sourceRef:
-  - kind: GitRepository
+    kind: GitRepository
     name: my-repo
   prune: true
   interval: 5m

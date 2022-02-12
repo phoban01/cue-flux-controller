@@ -108,6 +108,13 @@ func (in *CueInstanceSpec) DeepCopyInto(out *CueInstanceSpec) {
 	out.SourceRef = in.SourceRef
 	if in.Tags != nil {
 		in, out := &in.Tags, &out.Tags
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
+	if in.TagVars != nil {
+		in, out := &in.TagVars, &out.TagVars
 		*out = make([]TagVar, len(*in))
 		copy(*out, *in)
 	}

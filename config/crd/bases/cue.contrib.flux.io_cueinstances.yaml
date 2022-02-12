@@ -128,18 +128,23 @@ spec:
                   cue executions, it does not apply to already started executions.
                   Defaults to false.
                 type: boolean
-              tags:
+              tagVars:
+                description: TagVars are vars that will be available to use in tags
                 items:
                   properties:
-                    name:
+                    key:
                       type: string
                     value:
                       type: string
                   required:
-                  - name
+                  - key
                   - value
                   type: object
                 type: array
+              tags:
+                additionalProperties:
+                  type: string
+                type: object
               timeout:
                 description: Timeout for validation, apply and health checking operations.
                   Defaults to 'Interval' duration.

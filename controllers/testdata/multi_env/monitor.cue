@@ -1,11 +1,8 @@
 @if(mon)
-package kube
+package platform
 
-kubernetes: monitor: {
+app: monitor: {
 	apiVersion: "monitoring.coreos.com/v1"
 	kind:       "ServiceMonitor"
-	metadata: {
-		name:      _name
-		namespace: _namespace
-	}
+	metadata:   _meta
 }

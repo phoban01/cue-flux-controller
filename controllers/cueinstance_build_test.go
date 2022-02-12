@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func XTestCueInstanceReconciler_BuildInstance(t *testing.T) {
+func TestCueInstanceReconciler_BuildInstance(t *testing.T) {
 	g := NewWithT(t)
 	id := "builder-" + randStringRunes(5)
 
@@ -57,19 +57,13 @@ func XTestCueInstanceReconciler_BuildInstance(t *testing.T) {
 		Spec: cuev1alpha1.CueInstanceSpec{
 			Interval:   metav1.Duration{Duration: reconciliationInterval},
 			ModuleRoot: "./testdata/multi_env",
-			Path:       "env/dev",
+			Path:       "cluster-01/dev/tenant-01",
 			Exprs: []string{
-				"k8s",
+				"out",
 			},
-			Tags: []cuev1alpha1.TagVar{
-				{
-					Name:  "name",
-					Value: tagName,
-				},
-				{
-					Name:  "namespace",
-					Value: deployNamespace,
-				},
+			Tags: map[string]string{
+				"name":      tagName,
+				"namespace": deployNamespace,
 			},
 			KubeConfig: &cuev1alpha1.KubeConfig{
 				SecretRef: meta.LocalObjectReference{

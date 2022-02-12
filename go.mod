@@ -14,8 +14,8 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.7.0
 	github.com/onsi/gomega v1.17.0
 	github.com/spf13/pflag v1.0.5
-	k8s.io/api v0.23.1
-	k8s.io/apimachinery v0.23.1
+	k8s.io/api v0.23.3
+	k8s.io/apimachinery v0.23.3
 	k8s.io/client-go v0.23.1
 	sigs.k8s.io/cli-utils v0.27.0
 	sigs.k8s.io/controller-runtime v0.11.0
@@ -118,6 +118,8 @@ require (
 	sigs.k8s.io/json v0.0.0-20211208200746-9f7c6b3444d2 // indirect
 	sigs.k8s.io/kustomize/api v0.10.1 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.13.0 // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.2.0 // indirect
+	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
+
+replace github.com/golang/glog => github.com/slok/noglog v0.2.0
