@@ -12,5 +12,9 @@ _appconf: {
 }
 
 _config: {
-	whitelist_urls: ["http://example.org"]
+	whitelist_urls: [
+		"https://example.com",
+		"https://acme.org",
+		"http://localhost.net",
+	]
 }
