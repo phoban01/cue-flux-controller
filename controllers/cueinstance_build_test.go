@@ -61,9 +61,15 @@ func TestCueInstanceReconciler_BuildInstance(t *testing.T) {
 			Exprs: []string{
 				"out",
 			},
-			Tags: map[string]string{
-				"name":      tagName,
-				"namespace": deployNamespace,
+			Tags: []cuev1alpha1.TagVar{
+				{
+					Key:   "name",
+					Value: tagName,
+				},
+				{
+					Key:   "namespace",
+					Value: deployNamespace,
+				},
 			},
 			KubeConfig: &cuev1alpha1.KubeConfig{
 				SecretRef: meta.LocalObjectReference{

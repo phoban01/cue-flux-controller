@@ -57,9 +57,15 @@ func XTestCueInstanceReconciler_BuildInstancePolicy(t *testing.T) {
 			ModuleRoot: "./testdata/policy",
 			Path:       ".",
 			Policy:     cuev1alpha1.PolicyRuleDeny,
-			Tags: map[string]string{
-				"name":      tagName,
-				"namespace": deployNamespace,
+			Tags: []cuev1alpha1.TagVar{
+				{
+					Key:   "name",
+					Value: tagName,
+				},
+				{
+					Key:   "namespace",
+					Value: deployNamespace,
+				},
 			},
 			KubeConfig: &cuev1alpha1.KubeConfig{
 				SecretRef: meta.LocalObjectReference{

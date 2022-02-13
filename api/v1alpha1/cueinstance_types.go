@@ -44,7 +44,6 @@ type CueInstanceSpec struct {
 	Path string `json:"path,omitempty"`
 
 	// +optional
-	// +kubebuilder:default:="./"
 	ModuleRoot string `json:"moduleRoot,omitempty"`
 
 	// +optional

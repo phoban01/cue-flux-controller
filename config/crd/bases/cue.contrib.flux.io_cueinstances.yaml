@@ -83,7 +83,6 @@ spec:
                     type: object
                 type: object
               moduleRoot:
-                default: ./
                 type: string
               path:
                 type: string

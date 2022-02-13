@@ -107,17 +107,17 @@ generate: controller-gen
 docker-build:
 	docker buildx build \
 	--platform=$(BUILD_PLATFORMS) \
-	-t ${IMG} \
+	-t ${IMG}:${TAG} \
 	--load \
 	${BUILD_ARGS} .
 
 # Push the docker image
 docker-push:
-	docker push ${IMG}
+	docker push ${IMG}:${TAG}
 
 # Set the docker image in-cluster
 docker-deploy:
-	kubectl -n flux-system set image deployment/cue-controller manager=${IMG}
+	kubectl -n flux-system set image deployment/cue-controller manager=${IMG}:${TAG}
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 .PHONY: controller-gen
