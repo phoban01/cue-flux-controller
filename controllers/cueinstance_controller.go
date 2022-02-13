@@ -479,8 +479,12 @@ func (r *CueInstanceReconciler) build(ctx context.Context,
 	cctx := cuecontext.New()
 
 	tags := make([]string, 0, len(instance.Spec.Tags))
-	for k, v := range instance.Spec.Tags {
-		tags = append(tags, fmt.Sprintf("%s=%s", k, v))
+	for _, t := range instance.Spec.Tags {
+		if t.Value != "" {
+			tags = append(tags, fmt.Sprintf("%s=%s", t.Key, t.Value))
+		} else {
+			tags = append(tags, t.Key)
+		}
 	}
 
 	tagVars := make(map[string]load.TagVar, len(instance.Spec.TagVars))

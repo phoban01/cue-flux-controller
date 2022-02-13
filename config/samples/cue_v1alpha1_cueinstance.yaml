@@ -19,6 +19,8 @@ spec:
   moduleRoot: "./examples/podinfo"
   expressions:
   - out
+  tags:
+  - key: hpa
   prune: true
   sourceRef:
     kind: GitRepository

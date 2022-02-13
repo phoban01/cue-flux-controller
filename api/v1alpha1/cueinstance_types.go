@@ -48,7 +48,7 @@ type CueInstanceSpec struct {
 	ModuleRoot string `json:"moduleRoot,omitempty"`
 
 	// +optional
-	Tags map[string]string `json:"tags,omitempty"`
+	Tags []TagVar `json:"tags,omitempty"`
 
 	// TagVars are vars that will be available to use in tags
 	// +optional
@@ -104,8 +104,8 @@ type TagVar struct {
 	// +required
 	Key string `json:"key"`
 
-	// +required
-	Value string `json:"value"`
+	// +optional
+	Value string `json:"value,omitempty"`
 }
 
 func (in CueInstance) GetTimeout() time.Duration {

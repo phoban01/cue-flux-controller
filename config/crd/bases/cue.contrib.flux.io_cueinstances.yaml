@@ -138,13 +138,19 @@ spec:
                       type: string
                   required:
                   - key
-                  - value
                   type: object
                 type: array
               tags:
-                additionalProperties:
-                  type: string
-                type: object
+                items:
+                  properties:
+                    key:
+                      type: string
+                    value:
+                      type: string
+                  required:
+                  - key
+                  type: object
+                type: array
               timeout:
                 description: Timeout for validation, apply and health checking operations.
                   Defaults to 'Interval' duration.
