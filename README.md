@@ -32,7 +32,14 @@ controllers installed in your cluster. Visit [https://fluxcd.io/docs/get-started
 
 ### Installation
 
+Install the CRDs:
 ```bash
+make install
+```
+
+Deploy the controller:
+```bash
+make deploy
 ```
 
 ### Define a Git repository source
