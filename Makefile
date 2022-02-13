@@ -26,7 +26,7 @@ all: manager
 # Download the envtest binaries to testbin
 ENVTEST_ASSETS_DIR=$(shell pwd)/build/testbin
 ENVTEST_KUBERNETES_VERSION?=latest
-install-envtest: setup-envtest
+install-envtest: envtest
 	mkdir -p ${ENVTEST_ASSETS_DIR}
 	$(ENVTEST) use $(ENVTEST_KUBERNETES_VERSION) --arch=$(ENVTEST_ARCH) --bin-dir=$(ENVTEST_ASSETS_DIR)
 
@@ -82,7 +82,7 @@ manifests: controller-gen
 
 # Generate API reference documentation
 api-docs: gen-crd-api-reference-docs
-	$(GEN_CRD_API_REFERENCE_DOCS) -api-dir=./api/v1beta2 -config=./hack/api-docs/config.json -template-dir=./hack/api-docs/template -out-file=./docs/api/cue.md
+	$(GEN_CRD_API_REFERENCE_DOCS) -api-dir=./api/v1alpha1 -config=./hack/api-docs/config.json -template-dir=./hack/api-docs/template -out-file=./docs/api/cue.md
 
 # Run go mod tidy
 tidy:

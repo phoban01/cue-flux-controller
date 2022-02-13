@@ -3,15 +3,16 @@ package platform
 import (
 	"deploy.test/pkg/components"
 	"encoding/yaml"
-	"path"
+	// "path"
 )
 
 // # TODO: extend example to allow configuring multiple applications
 // # Question: how to validate policy in that scenario?
 
-_env:    *"dev" | string @tag(env,short=dev|stg|prd)
-_path:   string          @tag(dir,var="cwd")
-_tenant: path.Base(_path)
+_env: *"dev" | string @tag(env,short=dev|stg|prd)
+// _path:   string                     @tag(dir,var="cwd")
+// _tenant: path.Base(_path)
+_tenant: string @tag(namespace)
 
 _meta: components.#Metadata & {
 	name:      string @tag(name)

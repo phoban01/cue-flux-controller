@@ -57,7 +57,7 @@ func TestCueInstanceReconciler_BuildInstance(t *testing.T) {
 		Spec: cuev1alpha1.CueInstanceSpec{
 			Interval:   metav1.Duration{Duration: reconciliationInterval},
 			ModuleRoot: "./testdata/multi_env",
-			Path:       "cluster-01/dev/tenant-01",
+			Path:       "cluster-01/tenant-01",
 			Exprs: []string{
 				"out",
 			},
