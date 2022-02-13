@@ -1,4 +1,4 @@
-project_name: cue-controller
+project_name: cue-flux-controller
 
 builds:
   - skip: true
