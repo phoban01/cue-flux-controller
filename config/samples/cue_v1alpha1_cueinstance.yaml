@@ -1,16 +1,25 @@
+apiVersion: source.toolkit.fluxcd.io/v1beta1
+kind: GitRepository
+metadata:
+  name: cuedemo
+  namespace: default
+spec:
+  interval: 5m
+  url: https://github.com/phoban01/cuedemo
+  ref:
+    branch: main
+---
 apiVersion: cue.contrib.flux.io/v1alpha1
 kind: CueInstance
 metadata:
-  name: cueinstance-sample
+  name: podinfo-dev
+  namespace: default
 spec:
-  paths: "./cluster-01/dev/tenant-01"
+  interval: 5m
+  moduleRoot: "./examples/podinfo"
   expressions:
   - out
-  tags:
-    image: nginx
-    dev: true
+  prune: true
   sourceRef:
     kind: GitRepository
-    name: my-repo
-  prune: true
-  interval: 5m
+    name: cuedemo

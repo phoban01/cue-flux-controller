@@ -44,12 +44,12 @@ apiVersion: source.toolkit.fluxcd.io/v1beta1
 kind: GitRepository
 metadata:
   name: cuedemo
-  namespace: flux-system
+  namespace: default
 spec:
-  interval: 1m
-  url: https://github.com/phoban/cuedemo
+  interval: 5m
+  url: https://github.com/phoban01/cuedemo
   ref:
-    branch: master
+    branch: main
 ```
 
 ### Define a CueInstance
@@ -61,13 +61,12 @@ apiVersion: cue.contrib.flux.io/v1alpha1
 kind: CueInstance
 metadata:
   name: podinfo-dev
+  namespace: default
 spec:
   interval: 5m
-  paths: "./examples/podinfo"
+  moduleRoot: "./examples/podinfo"
   expressions:
   - out
-  tags:
-    dev: true
   prune: true
   sourceRef:
     kind: GitRepository

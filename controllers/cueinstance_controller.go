@@ -79,7 +79,9 @@ type CueInstanceReconciler struct {
 	MetricsRecorder       *metrics.Recorder
 	StatusPoller          *polling.StatusPoller
 	ControllerName        string
+	statusManager         string
 	NoCrossNamespaceRefs  bool
+	DefaultServiceAccount string
 }
 
 // CueInstanceReconcilerOptions options
@@ -92,6 +94,11 @@ type CueInstanceReconcilerOptions struct {
 //+kubebuilder:rbac:groups=cue.contrib.flux.io,resources=cueinstances,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=cue.contrib.flux.io,resources=cueinstances/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=cue.contrib.flux.io,resources=cueinstances/finalizers,verbs=update
+
+// +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=buckets;gitrepositories,verbs=get;list;watch
+// +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=buckets/status;gitrepositories/status,verbs=get
+// +kubebuilder:rbac:groups="",resources=configmaps;secrets;serviceaccounts,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 // SetupWithManager sets up the controller with the Manager.
 // SetupWithManager sets up the controller with the Manager.
@@ -107,6 +114,8 @@ func (r *CueInstanceReconciler) SetupWithManager(mgr ctrl.Manager, opts CueInsta
 	}
 
 	r.requeueDependency = opts.DependencyRequeueInterval
+
+	r.statusManager = fmt.Sprintf("gotk-%s", r.ControllerName)
 
 	// Configure the retryable http client used for fetching artifacts.
 	// By default it retries 10 times within a 3.5 minutes window.
@@ -341,7 +350,7 @@ func (r *CueInstanceReconciler) reconcile(
 
 	// setup a Kubernetes client
 	// setup the Kubernetes client for impersonation
-	impersonation := NewCueInstanceImpersonation(cueInstance, r.Client, r.StatusPoller, dirPath)
+	impersonation := NewCueInstanceImpersonation(cueInstance, r.Client, r.StatusPoller, r.DefaultServiceAccount)
 	kubeClient, statusPoller, err := impersonation.GetClient(ctx)
 	if err != nil {
 		return cuev1alpha1.CueInstanceNotReady(
@@ -819,12 +828,58 @@ func (r *CueInstanceReconciler) getSource(ctx context.Context, cueInstance cuev1
 }
 
 func (r *CueInstanceReconciler) finalize(ctx context.Context, cueInstance cuev1alpha1.CueInstance) (ctrl.Result, error) {
+	log := ctrl.LoggerFrom(ctx)
+	if cueInstance.Spec.Prune &&
+		!cueInstance.Spec.Suspend &&
+		cueInstance.Status.Inventory != nil &&
+		cueInstance.Status.Inventory.Entries != nil {
+		objects, _ := ListObjectsInInventory(cueInstance.Status.Inventory)
+
+		impersonation := NewCueInstanceImpersonation(cueInstance, r.Client, r.StatusPoller, r.DefaultServiceAccount)
+		if impersonation.CanFinalize(ctx) {
+			kubeClient, _, err := impersonation.GetClient(ctx)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+
+			resourceManager := ssa.NewResourceManager(kubeClient, nil, ssa.Owner{
+				Field: r.ControllerName,
+				Group: cuev1alpha1.GroupVersion.Group,
+			})
+
+			opts := ssa.DeleteOptions{
+				PropagationPolicy: metav1.DeletePropagationBackground,
+				Inclusions:        resourceManager.GetOwnerLabels(cueInstance.Name, cueInstance.Namespace),
+				Exclusions: map[string]string{
+					fmt.Sprintf("%s/prune", cuev1alpha1.GroupVersion.Group):     cuev1alpha1.DisabledValue,
+					fmt.Sprintf("%s/reconcile", cuev1alpha1.GroupVersion.Group): cuev1alpha1.DisabledValue,
+				},
+			}
+
+			changeSet, err := resourceManager.DeleteAll(ctx, objects, opts)
+			if err != nil {
+				r.event(ctx, cueInstance, cueInstance.Status.LastAppliedRevision, events.EventSeverityError, "pruning for deleted resource failed", nil)
+				// Return the error so we retry the failed garbage collection
+				return ctrl.Result{}, err
+			}
+
+			if changeSet != nil && len(changeSet.Entries) > 0 {
+				r.event(ctx, cueInstance, cueInstance.Status.LastAppliedRevision, events.EventSeverityInfo, changeSet.String(), nil)
+			}
+		} else {
+			// when the account to impersonate is gone, log the stale objects and continue with the finalization
+			msg := fmt.Sprintf("unable to prune objects: \n%s", ssa.FmtUnstructuredList(objects))
+			log.Error(fmt.Errorf("skiping pruning, failed to find account to impersonate"), msg)
+			r.event(ctx, cueInstance, cueInstance.Status.LastAppliedRevision, events.EventSeverityError, msg, nil)
+		}
+	}
+
 	// Record deleted status
 	r.recordReadiness(ctx, cueInstance)
 
 	// Remove our finalizer from the list and update it
 	controllerutil.RemoveFinalizer(&cueInstance, cuev1alpha1.CueInstanceFinalizer)
-	if err := r.Update(ctx, &cueInstance); err != nil {
+	if err := r.Update(ctx, &cueInstance, client.FieldOwner(r.statusManager)); err != nil {
 		return ctrl.Result{}, err
 	}
 

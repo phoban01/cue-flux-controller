@@ -1,13 +1,7 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: flux-system
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cue-controller
-  namespace: system
   labels:
     app: cue-controller
 spec:
@@ -22,37 +16,38 @@ spec:
       labels:
         app: cue-controller
     spec:
+      serviceAccountName: cue-controller
       securityContext:
         runAsNonRoot: true
       containers:
       - args:
-        # - --events-addr=http://notification-controller.flux-system.svc.cluster.local/
-        - --watch-all-namespaces=true
-        - --log-level=info
-        - --log-encoding=json
-        - --enable-leader-election
+          - --watch-all-namespaces
+          - --log-level=info
+          - --log-encoding=json
+          - --enable-leader-election
+        name: manager
+        image: phoban01/cue-controller:latest
         env:
         - name: RUNTIME_NAMESPACE
           valueFrom:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
-        image: phoban01/cue-controller:latest
-        name: manager
-        securityContext:
-          allowPrivilegeEscalation: false
-        livenessProbe:
-          httpGet:
-            path: /healthz
-            port: 8081
-          initialDelaySeconds: 15
-          periodSeconds: 20
+        ports:
+          - containerPort: 8080
+            name: http-prom
+            protocol: TCP
+          - containerPort: 9440
+            name: healthz
+            protocol: TCP
         readinessProbe:
           httpGet:
             path: /readyz
-            port: 8081
-          initialDelaySeconds: 5
-          periodSeconds: 10
+            port: healthz
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: healthz
         resources:
           limits:
             cpu: "1"
@@ -60,5 +55,6 @@ spec:
           requests:
             cpu: 100m
             memory: 64Mi
-      serviceAccountName: cue-controller
+        securityContext:
+          allowPrivilegeEscalation: false
       terminationGracePeriodSeconds: 10

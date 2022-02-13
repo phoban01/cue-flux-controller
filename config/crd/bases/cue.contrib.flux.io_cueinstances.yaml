@@ -151,7 +151,6 @@ spec:
                 type: string
             required:
             - interval
-            - path
             - prune
             - sourceRef
             type: object

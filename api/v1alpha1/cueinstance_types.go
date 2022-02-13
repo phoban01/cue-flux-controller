@@ -40,8 +40,8 @@ type CueInstanceSpec struct {
 
 	// +required
 	SourceRef CrossNamespaceSourceReference `json:"sourceRef"`
-	// +required
-	Path string `json:"path"`
+	// +optional
+	Path string `json:"path,omitempty"`
 
 	// +optional
 	// +kubebuilder:default:="./"

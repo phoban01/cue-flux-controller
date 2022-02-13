@@ -71,7 +71,7 @@ dev-deploy: manifests
 # Delete dev deployment and CRDs
 dev-cleanup: manifests
 	mkdir -p config/dev && cp config/default/* config/dev
-	cd config/dev && kustomize edit set image fluxcd/cue-controller=${IMG}:${TAG}
+	cd config/dev && kustomize edit set image phoban01/cue-controller=${IMG}:${TAG}
 	kustomize build config/dev | kubectl delete -f -
 	rm -rf config/dev
 
@@ -82,7 +82,7 @@ manifests: controller-gen
 
 # Generate API reference documentation
 api-docs: gen-crd-api-reference-docs
-	$(GEN_CRD_API_REFERENCE_DOCS) -api-dir=./api/v1beta2 -config=./hack/api-docs/config.json -template-dir=./hack/api-docs/template -out-file=./docs/api/kustomize.md
+	$(GEN_CRD_API_REFERENCE_DOCS) -api-dir=./api/v1beta2 -config=./hack/api-docs/config.json -template-dir=./hack/api-docs/template -out-file=./docs/api/cue.md
 
 # Run go mod tidy
 tidy:
@@ -117,7 +117,7 @@ docker-push:
 
 # Set the docker image in-cluster
 docker-deploy:
-	kubectl -n flux-system set image deployment/kustomize-controller manager=${IMG}
+	kubectl -n flux-system set image deployment/cue-controller manager=${IMG}
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 .PHONY: controller-gen

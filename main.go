@@ -76,15 +76,17 @@ func main() {
 		aclOptions            acl.Options
 		watchAllNamespaces    bool
 		httpRetry             int
+		defaultServiceAccount string
 	)
 
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&eventsAddr, "events-addr", "", "The address of the events receiver.")
 	flag.StringVar(&healthAddr, "health-addr", ":9440", "The address the health endpoint binds to.")
-	flag.IntVar(&concurrent, "concurrent", 4, "The number of concurrent kustomize reconciles.")
+	flag.IntVar(&concurrent, "concurrent", 4, "The number of concurrent cue instance reconciles.")
 	flag.DurationVar(&requeueDependency, "requeue-dependency", 30*time.Second, "The interval at which failing dependencies are reevaluated.")
 	flag.BoolVar(&watchAllNamespaces, "watch-all-namespaces", true,
 		"Watch for custom resources in all namespaces, if set to false it will only watch the runtime namespace.")
+	flag.StringVar(&defaultServiceAccount, "default-service-account", "", "Default service account used for impersonation.")
 	flag.IntVar(&httpRetry, "http-retry", 9, "The maximum number of retries when failing to fetch artifacts over HTTP.")
 	clientOptions.BindFlags(flag.CommandLine)
 	logOptions.BindFlags(flag.CommandLine)
@@ -144,6 +146,7 @@ func main() {
 		MetricsRecorder:       metricsRecorder,
 		StatusPoller:          polling.NewStatusPoller(mgr.GetClient(), mgr.GetRESTMapper(), nil),
 		NoCrossNamespaceRefs:  aclOptions.NoCrossNamespaceRefs,
+		DefaultServiceAccount: defaultServiceAccount,
 	}).SetupWithManager(mgr, controllers.CueInstanceReconcilerOptions{
 		MaxConcurrentReconciles:   concurrent,
 		DependencyRequeueInterval: requeueDependency,
