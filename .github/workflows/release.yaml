@@ -76,9 +76,13 @@ jobs:
       - name: Generate release artifacts
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
+
+          cd config/manager && kustomize edit set image phoban01/cue-controller=ghcr.io/phoban01/${{ env.CONTROLLER }}:${{ steps.prep.outputs.VERSION }}
+          cd ../..
           mkdir -p config/release
           kustomize build ./config/crd > ./config/release/${{ env.CONTROLLER }}.crds.yaml
           kustomize build ./config/manager > ./config/release/${{ env.CONTROLLER }}.deployment.yaml
+          kustomize build ./config/rbac > ./config/release/${{ env.CONTROLLER }}.rbac.yaml
           echo '[CHANGELOG](https://github.com/phoban01/${{ env.CONTROLLER }}/blob/main/CHANGELOG.md)' > ./config/release/notes.md
       - uses: anchore/sbom-action/download-syft@v0
       - name: Create release and SBOM
