@@ -2,7 +2,7 @@ apiVersion: source.toolkit.fluxcd.io/v1beta1
 kind: GitRepository
 metadata:
   name: cuedemo
-  namespace: default
+  namespace: flux-system
 spec:
   interval: 5m
   url: https://github.com/phoban01/cuedemo
@@ -12,15 +12,13 @@ spec:
 apiVersion: cue.contrib.flux.io/v1alpha1
 kind: CueInstance
 metadata:
-  name: podinfo-dev
-  namespace: default
+  name: podinfo
+  namespace: flux-system
 spec:
-  interval: 5m
-  moduleRoot: "./examples/podinfo"
+  interval: 10m
+  root: "./examples/podinfo"
   expressions:
   - out
-  tags:
-  - key: hpa
   prune: true
   sourceRef:
     kind: GitRepository

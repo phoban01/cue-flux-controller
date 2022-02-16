@@ -148,7 +148,7 @@ string
 </tr>
 <tr>
 <td>
-<code>moduleRoot</code><br>
+<code>root</code><br>
 <em>
 string
 </em>
@@ -161,7 +161,9 @@ string
 <td>
 <code>tags</code><br>
 <em>
-map[string]string
+<a href="#cue.contrib.flux.io/v1alpha1.TagVar">
+[]TagVar
+</a>
 </em>
 </td>
 <td>
@@ -380,7 +382,7 @@ string
 </tr>
 <tr>
 <td>
-<code>moduleRoot</code><br>
+<code>root</code><br>
 <em>
 string
 </em>
@@ -393,7 +395,9 @@ string
 <td>
 <code>tags</code><br>
 <em>
-map[string]string
+<a href="#cue.contrib.flux.io/v1alpha1.TagVar">
+[]TagVar
+</a>
 </em>
 </td>
 <td>
@@ -798,6 +802,7 @@ string
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 </td>
 </tr>
 </tbody>

@@ -308,7 +308,7 @@ func (r *CueInstanceReconciler) reconcile(
 	}
 
 	// check module path exists
-	moduleRootPath, err := securejoin.SecureJoin(tmpDir, cueInstance.Spec.ModuleRoot)
+	moduleRootPath, err := securejoin.SecureJoin(tmpDir, cueInstance.Spec.Root)
 	if err != nil {
 		return cuev1alpha1.CueInstanceNotReady(
 			cueInstance,
@@ -475,7 +475,6 @@ func (r *CueInstanceReconciler) reconcile(
 func (r *CueInstanceReconciler) build(ctx context.Context,
 	root, dir string,
 	instance *cuev1alpha1.CueInstance) ([]byte, error) {
-	log := ctrl.LoggerFrom(ctx)
 	cctx := cuecontext.New()
 
 	tags := make([]string, 0, len(instance.Spec.Tags))
@@ -499,6 +498,7 @@ func (r *CueInstanceReconciler) build(ctx context.Context,
 	ix := load.Instances([]string{}, &load.Config{
 		ModuleRoot: root,
 		Dir:        dir,
+		DataFiles:  true, //@TODO: this could be configurable
 		Tags:       tags,
 		TagVars:    tagVars,
 	})
@@ -514,23 +514,23 @@ func (r *CueInstanceReconciler) build(ctx context.Context,
 
 	value := cctx.BuildInstance(inst)
 	if value.Err() != nil {
+		fmt.Println()
 		return nil, value.Err()
 	}
 
-	err := value.Validate()
-	if err != nil {
-		switch instance.Spec.Policy {
-		case cuev1alpha1.PolicyRuleIgnore:
-			log.Info("validation error", "msg", err)
-		case cuev1alpha1.PolicyRuleAudit:
-			log.Error(err, "validation error")
-			// log event
-		case cuev1alpha1.PolicyRuleDeny:
-			log.Error(err, "validation error")
-			// log event
-			return nil, err
-		}
-	}
+	// err := value.Validate()
+	// if err != nil {
+	//     switch instance.Spec.Policy {
+	//     case cuev1alpha1.PolicyRuleIgnore:
+	//     case cuev1alpha1.PolicyRuleAudit:
+	//         log.Error(err, "validation error")
+	//         // log event
+	//     case cuev1alpha1.PolicyRuleDeny:
+	//         log.Error(err, "validation error")
+	//         // log event
+	//         return nil, err
+	//     }
+	// }
 
 	var result bytes.Buffer
 	if len(instance.Spec.Exprs) > 0 {
@@ -558,6 +558,20 @@ func (r *CueInstanceReconciler) build(ctx context.Context,
 		}
 	}
 
+	// TODO: enable validating the result
+	for _, f := range inst.OrphanedFiles {
+		if f.Encoding == "yaml" {
+			data, err := os.ReadFile(f.Filename)
+			if err != nil {
+				panic(err)
+			}
+			_, err = result.Write(data)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	return result.Bytes(), nil
 }
 
@@ -582,7 +596,7 @@ func cueEncodeYAML(value cue.Value) ([]byte, error) {
 			return nil, err
 		}
 	default:
-		return nil, fmt.Errorf("unsupported Kind %s", value.Kind())
+		return nil, nil
 	}
 	data = append(data, []byte("\n---\n")...)
 	return data, nil

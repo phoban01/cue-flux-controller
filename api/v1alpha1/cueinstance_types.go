@@ -40,11 +40,12 @@ type CueInstanceSpec struct {
 
 	// +required
 	SourceRef CrossNamespaceSourceReference `json:"sourceRef"`
+
 	// +optional
 	Path string `json:"path,omitempty"`
 
 	// +optional
-	ModuleRoot string `json:"moduleRoot,omitempty"`
+	Root string `json:"root,omitempty"`
 
 	// +optional
 	Tags []TagVar `json:"tags,omitempty"`

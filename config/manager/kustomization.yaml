@@ -1,3 +1,5 @@
+namespace: flux-system
+
 resources:
 - manager.yaml
 
@@ -13,4 +15,4 @@ kind: Kustomization
 images:
 - name: phoban01/cue-controller
   newName: ghcr.io/phoban01/cue-controller
-  newTag: latest
+  newTag: v0.0.1-alpha.2
