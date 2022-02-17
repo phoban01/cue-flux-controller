@@ -55,6 +55,7 @@ func TestCueInstanceReconciler_Validation(t *testing.T) {
 			Interval: metav1.Duration{Duration: reconciliationInterval},
 			Root:     "./testdata/validation",
 			Path:     "data/",
+			Package:  "platform",
 			Validate: &cuev1alpha1.Validation{
 				Mode:   cuev1alpha1.DropPolicy,
 				Schema: "#HasOwnerLabel",

@@ -10,7 +10,6 @@ import (
 	. "github.com/onsi/gomega"
 	cuev1alpha1 "github.com/phoban01/cue-flux-controller/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,7 +30,7 @@ func TestCueInstanceReconciler_BuildInstance(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	artifactFile := "instance-" + randStringRunes(5)
-	artifactChecksum, err := createArtifact(testServer, "testdata/multi_env", artifactFile)
+	artifactChecksum, err := createArtifact(testServer, "testdata/app", artifactFile)
 	g.Expect(err).ToNot(HaveOccurred())
 
 	repositoryName := types.NamespacedName{
@@ -56,8 +55,7 @@ func TestCueInstanceReconciler_BuildInstance(t *testing.T) {
 		},
 		Spec: cuev1alpha1.CueInstanceSpec{
 			Interval: metav1.Duration{Duration: reconciliationInterval},
-			Root:     "./testdata/multi_env",
-			Path:     "cluster-01/tenant-01",
+			Root:     "./testdata/app",
 			Exprs: []string{
 				"out",
 			},
@@ -97,10 +95,4 @@ func TestCueInstanceReconciler_BuildInstance(t *testing.T) {
 		Name:      tagName,
 		Namespace: deployNamespace,
 	}, deployment)).To(Succeed())
-
-	serviceAccount := &corev1.ServiceAccount{}
-	g.Expect(k8sClient.Get(context.TODO(), types.NamespacedName{
-		Name:      tagName,
-		Namespace: deployNamespace,
-	}, serviceAccount)).To(Succeed())
 }

@@ -498,7 +498,6 @@ func (r *CueInstanceReconciler) build(ctx context.Context,
 	}
 
 	cfg := &load.Config{
-		Package:    "platform",
 		ModuleRoot: root,
 		Dir:        dir,
 		DataFiles:  true, //@TODO: this could be configurable
