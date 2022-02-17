@@ -13,13 +13,14 @@ The cue-controller is **heavily** based on the codebase for [kustomize-controlle
 - [x] Specify the CUE working directory and module root
 - [x] Specify the CUE expression(s) from which the instance will build
 - [x] Set CUE tags and tag variables for the instance
+- [x] Specify module root, package and directory variables for CUE instance
 - [x] Apply manifests from a CUE instance
 - [x] Impersonation via ServiceAccount
 - [x] Remote cluster access via kubeconfig
 - [x] Prune Kubernetes resources removed from the CUE source
-- [ ] Policy-mode (use CUE only for schema validation, with configurable failure modes)
-- [ ] Validation failure notifications
-- [ ] Support for non-CUE files
+- [x] Support for non-CUE files
+- [x] Policy-mode (use CUE only for schema validation, with configurable failure modes)
+- [x] Validation failure notifications (via notification controller)
 - [ ] Health checks for deployed workloads
 - [ ] Dependency ordering using `dependsOn`
 - [ ] Support for decrypting secrets with Mozilla SOPS
@@ -71,7 +72,7 @@ metadata:
   namespace: default
 spec:
   interval: 5m
-  moduleRoot: "./examples/podinfo"
+  root: "./examples/podinfo"
   expressions:
   - out
   prune: true
