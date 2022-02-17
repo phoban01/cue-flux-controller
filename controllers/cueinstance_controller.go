@@ -362,7 +362,7 @@ func (r *CueInstanceReconciler) reconcile(
 	}
 
 	// build the cueInstance
-	resources, err := r.build(ctx, moduleRootPath, dirPath, &cueInstance)
+	resources, err := r.build(ctx, revision, moduleRootPath, dirPath, &cueInstance)
 	if err != nil {
 		return cuev1alpha1.CueInstanceNotReady(
 			cueInstance,
@@ -473,8 +473,10 @@ func (r *CueInstanceReconciler) reconcile(
 }
 
 func (r *CueInstanceReconciler) build(ctx context.Context,
-	root, dir string,
-	instance *cuev1alpha1.CueInstance) ([]byte, error) {
+	revision, root, dir string,
+	instance *cuev1alpha1.CueInstance,
+) ([]byte, error) {
+	log := ctrl.LoggerFrom(ctx)
 	cctx := cuecontext.New()
 
 	tags := make([]string, 0, len(instance.Spec.Tags))
@@ -495,13 +497,21 @@ func (r *CueInstanceReconciler) build(ctx context.Context,
 		}
 	}
 
-	ix := load.Instances([]string{}, &load.Config{
+	cfg := &load.Config{
+		Package:    "platform",
 		ModuleRoot: root,
 		Dir:        dir,
 		DataFiles:  true, //@TODO: this could be configurable
 		Tags:       tags,
 		TagVars:    tagVars,
-	})
+	}
+
+	if instance.Spec.Package != "" {
+		cfg.Package = instance.Spec.Package
+	}
+
+	ix := load.Instances([]string{}, cfg)
+
 	if len(ix) == 0 {
 		return nil, fmt.Errorf("no instances found")
 	}
@@ -514,23 +524,10 @@ func (r *CueInstanceReconciler) build(ctx context.Context,
 
 	value := cctx.BuildInstance(inst)
 	if value.Err() != nil {
-		fmt.Println()
 		return nil, value.Err()
 	}
 
-	// err := value.Validate()
-	// if err != nil {
-	//     switch instance.Spec.Policy {
-	//     case cuev1alpha1.PolicyRuleIgnore:
-	//     case cuev1alpha1.PolicyRuleAudit:
-	//         log.Error(err, "validation error")
-	//         // log event
-	//     case cuev1alpha1.PolicyRuleDeny:
-	//         log.Error(err, "validation error")
-	//         // log event
-	//         return nil, err
-	//     }
-	// }
+	shouldValidate := instance.Spec.Validate != nil
 
 	var result bytes.Buffer
 	if len(instance.Spec.Exprs) > 0 {
@@ -540,6 +537,28 @@ func (r *CueInstanceReconciler) build(ctx context.Context,
 			data, err := cueEncodeYAML(expr)
 			if err != nil {
 				return nil, err
+			}
+
+			if shouldValidate && instance.Spec.Validate.Type == "cue" {
+				schema := value.LookupPath(cue.ParsePath(instance.Spec.Validate.Schema))
+				schema.Unify(expr)
+				if err := schema.Unify(expr).Validate(); err != nil {
+					msg := fmt.Sprintf("cue expression validation failed: %s", err)
+					switch instance.Spec.Validate.Mode {
+					case cuev1alpha1.FailPolicy:
+						r.event(ctx, *instance, revision, events.EventSeverityInfo, msg, nil)
+						return nil, fmt.Errorf(msg)
+					case cuev1alpha1.DropPolicy:
+						r.event(ctx, *instance, revision, events.EventSeverityInfo, msg, nil)
+						continue
+					case cuev1alpha1.AuditPolicy:
+						r.event(ctx, *instance, revision, events.EventSeverityInfo, msg, nil)
+						break
+					case cuev1alpha1.IgnorePolicy:
+						log.Info(msg)
+						break
+					}
+				}
 			}
 
 			_, err = result.Write(data)
@@ -552,22 +571,101 @@ func (r *CueInstanceReconciler) build(ctx context.Context,
 		if err != nil {
 			return nil, err
 		}
-		_, err = result.Write(data)
-		if err != nil {
-			return nil, err
-		}
-	}
 
-	// TODO: enable validating the result
-	for _, f := range inst.OrphanedFiles {
-		if f.Encoding == "yaml" {
-			data, err := os.ReadFile(f.Filename)
-			if err != nil {
-				panic(err)
+		valid := false
+
+		if shouldValidate && instance.Spec.Validate.Type == "cue" {
+			schema := value.LookupPath(cue.ParsePath(instance.Spec.Validate.Schema))
+			if err := schema.Unify(value).Validate(); err != nil {
+				msg := fmt.Sprintf("cue validation failed: %s", err)
+				switch instance.Spec.Validate.Mode {
+				case cuev1alpha1.FailPolicy:
+					r.event(ctx, *instance, revision, events.EventSeverityInfo, msg, nil)
+					return nil, fmt.Errorf(msg)
+				case cuev1alpha1.DropPolicy:
+					r.event(ctx, *instance, revision, events.EventSeverityInfo, msg, nil)
+					valid = false
+				case cuev1alpha1.AuditPolicy:
+					r.event(ctx, *instance, revision, events.EventSeverityInfo, msg, nil)
+				case cuev1alpha1.IgnorePolicy:
+					log.Info(msg)
+				}
 			}
+		}
+
+		if valid {
 			_, err = result.Write(data)
 			if err != nil {
 				return nil, err
+			}
+		}
+	}
+
+	for _, of := range inst.OrphanedFiles {
+		if of.Encoding == "yaml" {
+			data, err := yaml.Extract(of.Filename, nil)
+			if err != nil {
+				return nil, err
+			}
+			f := cctx.BuildFile(data)
+			switch f.Kind() {
+			case cue.ListKind:
+				l, err := f.List()
+				if err != nil {
+					return nil, err
+				}
+				for l.Next() {
+					data, err := yaml.Encode(l.Value())
+					if err != nil {
+						return nil, err
+					}
+					if shouldValidate && instance.Spec.Validate.Type == "yaml" {
+						schema := value.LookupPath(cue.ParsePath(instance.Spec.Validate.Schema))
+						if err := yaml.Validate(data, schema); err != nil {
+							msg := fmt.Sprintf("yaml validation failed: %s", err)
+							switch instance.Spec.Validate.Mode {
+							case cuev1alpha1.FailPolicy:
+								r.event(ctx, *instance, revision, events.EventSeverityInfo, msg, nil)
+								return nil, fmt.Errorf(msg)
+							case cuev1alpha1.DropPolicy:
+								r.event(ctx, *instance, revision, events.EventSeverityInfo, msg, nil)
+								continue
+							case cuev1alpha1.AuditPolicy:
+								r.event(ctx, *instance, revision, events.EventSeverityInfo, msg, nil)
+								break
+							case cuev1alpha1.IgnorePolicy:
+								log.Info(msg)
+							}
+						}
+					}
+					result.Write(data)
+					result.Write([]byte("\n---\n"))
+				}
+			case cue.StructKind:
+				data, err := yaml.Encode(f)
+				if err != nil {
+					return nil, err
+				}
+				if shouldValidate && instance.Spec.Validate.Type == "yaml" {
+					schema := value.LookupPath(cue.ParsePath(instance.Spec.Validate.Schema))
+					if err := yaml.Validate(data, schema); err != nil {
+						msg := fmt.Sprintf("yaml validation failed: %s", err)
+						switch instance.Spec.Validate.Mode {
+						case cuev1alpha1.FailPolicy:
+							r.event(ctx, *instance, revision, events.EventSeverityInfo, msg, nil)
+							return nil, fmt.Errorf(msg)
+						case cuev1alpha1.DropPolicy:
+							r.event(ctx, *instance, revision, events.EventSeverityInfo, msg, nil)
+							continue
+						case cuev1alpha1.AuditPolicy:
+							r.event(ctx, *instance, revision, events.EventSeverityInfo, msg, nil)
+						case cuev1alpha1.IgnorePolicy:
+							log.Info(msg)
+						}
+					}
+				}
+				result.Write(data)
+				result.Write([]byte("\n---\n"))
 			}
 		}
 	}

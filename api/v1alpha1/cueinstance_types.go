@@ -26,6 +26,19 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+type ValidationMode string
+
+const (
+	// IgnorePolicy will ignore validation errors
+	IgnorePolicy ValidationMode = "Ignore"
+	// AuditPolicy will ignore validation failures and generate an event
+	AuditPolicy ValidationMode = "Audit"
+	// DropPolicy will drop objects which are invalid but continue to reconcile valid objects
+	DropPolicy ValidationMode = "Drop"
+	// FailPolicy will fail the entire reconcile if any validation errors are encountered
+	FailPolicy ValidationMode = "Fail"
+)
+
 const (
 	CueInstanceKind           = "CueInstance"
 	CueInstanceFinalizer      = "finalizers.fluxcd.io"
@@ -61,7 +74,7 @@ type CueInstanceSpec struct {
 	DependsOn []dependency.CrossNamespaceDependencyReference `json:"dependsOn,omitempty"`
 
 	// +optional
-	Policy PolicyRule `json:"policy,omitempty"`
+	Package string `json:"package,omitempty"`
 
 	// Prune enables garbage collection.
 	// +required
@@ -98,6 +111,12 @@ type CueInstanceSpec struct {
 	// +kubebuilder:default:=false
 	// +optional
 	Force bool `json:"force,omitempty"`
+
+	// TODO: this could be an array of validations
+	// in which case the policy may need to apply to all resources
+	// would allow for greater flexibility
+	// +optional
+	Validate *Validation `json:"validate,omitempty"`
 }
 
 type TagVar struct {
@@ -106,6 +125,19 @@ type TagVar struct {
 
 	// +optional
 	Value string `json:"value,omitempty"`
+}
+
+type Validation struct {
+	// +kubebuilder:default:="Audit"
+	// +optional
+	Mode ValidationMode `json:"mode,omitempty"`
+
+	// +required
+	Schema string `json:"schema"`
+
+	// +kubebuilder:default:="yaml"
+	// +optional
+	Type string `json:"type,omitempty"`
 }
 
 func (in CueInstance) GetTimeout() time.Duration {

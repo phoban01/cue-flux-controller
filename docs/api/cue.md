@@ -208,11 +208,9 @@ string
 </tr>
 <tr>
 <td>
-<code>policy</code><br>
+<code>package</code><br>
 <em>
-<a href="#cue.contrib.flux.io/v1alpha1.PolicyRule">
-PolicyRule
-</a>
+string
 </em>
 </td>
 <td>
@@ -309,6 +307,22 @@ bool
 <em>(Optional)</em>
 <p>Force instructs the controller to recreate resources
 when patching fails due to an immutable field change.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>validate</code><br>
+<em>
+<a href="#cue.contrib.flux.io/v1alpha1.Validation">
+Validation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TODO: this could be an array of validations
+in which case the policy may need to apply to all resources
+would allow for greater flexibility</p>
 </td>
 </tr>
 </table>
@@ -442,11 +456,9 @@ string
 </tr>
 <tr>
 <td>
-<code>policy</code><br>
+<code>package</code><br>
 <em>
-<a href="#cue.contrib.flux.io/v1alpha1.PolicyRule">
-PolicyRule
-</a>
+string
 </em>
 </td>
 <td>
@@ -543,6 +555,22 @@ bool
 <em>(Optional)</em>
 <p>Force instructs the controller to recreate resources
 when patching fails due to an immutable field change.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>validate</code><br>
+<em>
+<a href="#cue.contrib.flux.io/v1alpha1.Validation">
+Validation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TODO: this could be an array of validations
+in which case the policy may need to apply to all resources
+would allow for greater flexibility</p>
 </td>
 </tr>
 </tbody>
@@ -686,10 +714,6 @@ the CueInstance.</p>
 </div>
 <h3 id="cue.contrib.flux.io/v1alpha1.PolicyRule">PolicyRule
 (<code>string</code> alias)</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#cue.contrib.flux.io/v1alpha1.CueInstanceSpec">CueInstanceSpec</a>)
-</p>
 <h3 id="cue.contrib.flux.io/v1alpha1.ResourceInventory">ResourceInventory
 </h3>
 <p>
@@ -809,6 +833,66 @@ string
 </table>
 </div>
 </div>
+<h3 id="cue.contrib.flux.io/v1alpha1.Validation">Validation
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#cue.contrib.flux.io/v1alpha1.CueInstanceSpec">CueInstanceSpec</a>)
+</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>mode</code><br>
+<em>
+<a href="#cue.contrib.flux.io/v1alpha1.ValidationMode">
+ValidationMode
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+<tr>
+<td>
+<code>schema</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>type</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<h3 id="cue.contrib.flux.io/v1alpha1.ValidationMode">ValidationMode
+(<code>string</code> alias)</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#cue.contrib.flux.io/v1alpha1.Validation">Validation</a>)
+</p>
 <div class="admonition note">
 <p class="last">This page was automatically generated with <code>gen-crd-api-reference-docs</code></p>
 </div>

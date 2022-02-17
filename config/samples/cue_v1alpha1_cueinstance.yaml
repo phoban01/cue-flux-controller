@@ -23,3 +23,19 @@ spec:
   sourceRef:
     kind: GitRepository
     name: cuedemo
+---
+apiVersion: cue.contrib.flux.io/v1alpha1
+kind: CueInstance
+metadata:
+  name: podinfo
+  namespace: flux-system
+spec:
+  interval: 10m
+  root: "./examples/podinfo"
+  validate:
+    mode: Audit|Drop|Deny
+    schema: "#IsKRM"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: cuedemo

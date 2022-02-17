@@ -15,7 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func TestCueInstanceReconciler_BuildInstancePolicy(t *testing.T) {
+func TestCueInstanceReconciler_Validation(t *testing.T) {
 	g := NewWithT(t)
 	id := "builder-" + randStringRunes(5)
 
@@ -30,7 +30,7 @@ func TestCueInstanceReconciler_BuildInstancePolicy(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	artifactFile := "instance-" + randStringRunes(5)
-	artifactChecksum, err := createArtifact(testServer, "testdata/multi_env/cluster-01/tenant-03/", artifactFile)
+	artifactChecksum, err := createArtifact(testServer, "testdata/validation", artifactFile)
 	g.Expect(err).ToNot(HaveOccurred())
 
 	repositoryName := types.NamespacedName{
@@ -53,8 +53,13 @@ func TestCueInstanceReconciler_BuildInstancePolicy(t *testing.T) {
 		},
 		Spec: cuev1alpha1.CueInstanceSpec{
 			Interval: metav1.Duration{Duration: reconciliationInterval},
-			Root:     "./testdata/multi_env/cluster-01/tenant-03",
-			Path:     ".",
+			Root:     "./testdata/validation",
+			Path:     "data/",
+			Validate: &cuev1alpha1.Validation{
+				Mode:   cuev1alpha1.DropPolicy,
+				Schema: "#HasOwnerLabel",
+				Type:   "yaml",
+			},
 			KubeConfig: &cuev1alpha1.KubeConfig{
 				SecretRef: meta.LocalObjectReference{
 					Name: "kubeconfig",
@@ -78,7 +83,13 @@ func TestCueInstanceReconciler_BuildInstancePolicy(t *testing.T) {
 
 	g.Eventually(func() bool {
 		var obj corev1.ServiceAccount
-		err := k8sClient.Get(context.Background(), types.NamespacedName{Namespace: "default", Name: "test-pod"}, &obj)
+		err := k8sClient.Get(context.Background(), types.NamespacedName{Namespace: "default", Name: "test-good"}, &obj)
 		return err == nil
 	}, timeout, time.Second).Should(BeTrue())
+
+	g.Eventually(func() bool {
+		var obj corev1.ServiceAccount
+		err := k8sClient.Get(context.Background(), types.NamespacedName{Namespace: "default", Name: "test-bad"}, &obj)
+		return err == nil
+	}, timeout, time.Second).Should(BeFalse())
 }

@@ -82,9 +82,9 @@ spec:
                     - name
                     type: object
                 type: object
-              path:
+              package:
                 type: string
-              policy:
+              path:
                 type: string
               prune:
                 description: Prune enables garbage collection.
@@ -154,6 +154,22 @@ spec:
                 description: Timeout for validation, apply and health checking operations.
                   Defaults to 'Interval' duration.
                 type: string
+              validate:
+                description: 'TODO: this could be an array of validations in which
+                  case the policy may need to apply to all resources would allow for
+                  greater flexibility'
+                properties:
+                  mode:
+                    default: Audit
+                    type: string
+                  schema:
+                    type: string
+                  type:
+                    default: yaml
+                    type: string
+                required:
+                - schema
+                type: object
             required:
             - interval
             - prune
