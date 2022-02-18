@@ -48,33 +48,43 @@ const (
 
 // CueInstanceSpec defines the desired state of CueInstance
 type CueInstanceSpec struct {
+	// The interval at which the instance will be reconciled.
 	// +required
 	Interval metav1.Duration `json:"interval"`
 
+	// A reference to a Flux Source from which an artifact will be downloaded
+	// and the CUE instance built.
 	// +required
 	SourceRef CrossNamespaceSourceReference `json:"sourceRef"`
 
-	// +optional
-	Path string `json:"path,omitempty"`
-
+	// The module root of the CUE instance.
 	// +optional
 	Root string `json:"root,omitempty"`
 
+	// The path at which the CUE instance will be built from.
+	// +optional
+	Path string `json:"path,omitempty"`
+
+	// The CUE package to use for the CUE instance. This is useful when applying
+	// a CUE schema to plain yaml files.
+	// +optional
+	Package string `json:"package,omitempty"`
+
+	// Tags that will be injected into the CUE instance.
 	// +optional
 	Tags []TagVar `json:"tags,omitempty"`
 
-	// TagVars are vars that will be available to use in tags
+	// TagVars that will be available to the CUE instance.
 	// +optional
 	TagVars []TagVar `json:"tagVars,omitempty"`
 
+	// The CUE expression(s) to execute.
 	// +optional
 	Exprs []string `json:"expressions,omitempty"`
 
+	// Dependencies that must be ready before the CUE instance is reconciled.
 	// +optional
 	DependsOn []dependency.CrossNamespaceDependencyReference `json:"dependsOn,omitempty"`
-
-	// +optional
-	Package string `json:"package,omitempty"`
 
 	// Prune enables garbage collection.
 	// +required
@@ -112,16 +122,17 @@ type CueInstanceSpec struct {
 	// +optional
 	Force bool `json:"force,omitempty"`
 
-	// TODO: this could be an array of validations
+	// TODO(maybe): this could be an array of validations
 	// in which case the policy may need to apply to all resources
 	// would allow for greater flexibility
 	// +optional
 	Validate *Validation `json:"validate,omitempty"`
 }
 
+// TagVar is a tag variable with a required name and optional value
 type TagVar struct {
 	// +required
-	Key string `json:"key"`
+	Name string `json:"key"`
 
 	// +optional
 	Value string `json:"value,omitempty"`
@@ -140,6 +151,7 @@ type Validation struct {
 	Type string `json:"type,omitempty"`
 }
 
+// GetTimeout returns the timeout
 func (in CueInstance) GetTimeout() time.Duration {
 	duration := in.Spec.Interval.Duration - 30*time.Second
 	if in.Spec.Timeout != nil {

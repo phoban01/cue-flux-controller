@@ -61,11 +61,11 @@ func TestCueInstanceReconciler_BuildInstance(t *testing.T) {
 			},
 			Tags: []cuev1alpha1.TagVar{
 				{
-					Key:   "name",
+					Name:  "name",
 					Value: tagName,
 				},
 				{
-					Key:   "namespace",
+					Name:  "namespace",
 					Value: deployNamespace,
 				},
 			},

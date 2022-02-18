@@ -482,15 +482,15 @@ func (r *CueInstanceReconciler) build(ctx context.Context,
 	tags := make([]string, 0, len(instance.Spec.Tags))
 	for _, t := range instance.Spec.Tags {
 		if t.Value != "" {
-			tags = append(tags, fmt.Sprintf("%s=%s", t.Key, t.Value))
+			tags = append(tags, fmt.Sprintf("%s=%s", t.Name, t.Value))
 		} else {
-			tags = append(tags, t.Key)
+			tags = append(tags, t.Name)
 		}
 	}
 
 	tagVars := make(map[string]load.TagVar, len(instance.Spec.TagVars))
 	for _, t := range instance.Spec.TagVars {
-		tagVars[t.Key] = load.TagVar{
+		tagVars[t.Name] = load.TagVar{
 			Func: func() (ast.Expr, error) {
 				return ast.NewString(t.Value), nil
 			},
@@ -500,7 +500,7 @@ func (r *CueInstanceReconciler) build(ctx context.Context,
 	cfg := &load.Config{
 		ModuleRoot: root,
 		Dir:        dir,
-		DataFiles:  true, //@TODO: this could be configurable
+		DataFiles:  true, //TODO: this could be configurable
 		Tags:       tags,
 		TagVars:    tagVars,
 	}
@@ -510,13 +510,11 @@ func (r *CueInstanceReconciler) build(ctx context.Context,
 	}
 
 	ix := load.Instances([]string{}, cfg)
-
 	if len(ix) == 0 {
 		return nil, fmt.Errorf("no instances found")
 	}
 
 	inst := ix[0]
-
 	if inst.Err != nil {
 		return nil, inst.Err
 	}
