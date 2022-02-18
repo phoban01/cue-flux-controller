@@ -21,8 +21,8 @@ The cue-controller is **heavily** based on the codebase for [kustomize-controlle
 - [x] Support for non-CUE files
 - [x] Policy-mode (use CUE only for schema validation, with configurable failure modes)
 - [x] Validation failure notifications (via notification controller)
+- [x] Dependency ordering using `dependsOn`
 - [ ] Health checks for deployed workloads
-- [ ] Dependency ordering using `dependsOn`
 - [ ] Support for decrypting secrets with Mozilla SOPS
 - [ ] (TBD: Support for CUE tooling or workflows...)
 
