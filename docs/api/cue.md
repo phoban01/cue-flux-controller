@@ -121,6 +121,7 @@ k8s.io/apimachinery/pkg/apis/meta/v1.Duration
 </em>
 </td>
 <td>
+<p>The interval at which the instance will be reconciled.</p>
 </td>
 </tr>
 <tr>
@@ -133,17 +134,8 @@ CrossNamespaceSourceReference
 </em>
 </td>
 <td>
-</td>
-</tr>
-<tr>
-<td>
-<code>path</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
+<p>A reference to a Flux Source from which an artifact will be downloaded
+and the CUE instance built.</p>
 </td>
 </tr>
 <tr>
@@ -155,6 +147,32 @@ string
 </td>
 <td>
 <em>(Optional)</em>
+<p>The module root of the CUE instance.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>path</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The path at which the CUE instance will be built from.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>package</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The CUE package to use for the CUE instance. This is useful when applying
+a CUE schema to plain yaml files.</p>
 </td>
 </tr>
 <tr>
@@ -168,6 +186,7 @@ string
 </td>
 <td>
 <em>(Optional)</em>
+<p>Tags that will be injected into the CUE instance.</p>
 </td>
 </tr>
 <tr>
@@ -181,7 +200,7 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-<p>TagVars are vars that will be available to use in tags</p>
+<p>TagVars that will be available to the CUE instance.</p>
 </td>
 </tr>
 <tr>
@@ -193,6 +212,7 @@ string
 </td>
 <td>
 <em>(Optional)</em>
+<p>The CUE expression(s) to execute.</p>
 </td>
 </tr>
 <tr>
@@ -204,17 +224,7 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-</td>
-</tr>
-<tr>
-<td>
-<code>package</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
+<p>Dependencies that must be ready before the CUE instance is reconciled.</p>
 </td>
 </tr>
 <tr>
@@ -320,7 +330,7 @@ Validation
 </td>
 <td>
 <em>(Optional)</em>
-<p>TODO: this could be an array of validations
+<p>TODO(maybe): this could be an array of validations
 in which case the policy may need to apply to all resources
 would allow for greater flexibility</p>
 </td>
@@ -369,6 +379,7 @@ k8s.io/apimachinery/pkg/apis/meta/v1.Duration
 </em>
 </td>
 <td>
+<p>The interval at which the instance will be reconciled.</p>
 </td>
 </tr>
 <tr>
@@ -381,17 +392,8 @@ CrossNamespaceSourceReference
 </em>
 </td>
 <td>
-</td>
-</tr>
-<tr>
-<td>
-<code>path</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
+<p>A reference to a Flux Source from which an artifact will be downloaded
+and the CUE instance built.</p>
 </td>
 </tr>
 <tr>
@@ -403,6 +405,32 @@ string
 </td>
 <td>
 <em>(Optional)</em>
+<p>The module root of the CUE instance.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>path</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The path at which the CUE instance will be built from.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>package</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The CUE package to use for the CUE instance. This is useful when applying
+a CUE schema to plain yaml files.</p>
 </td>
 </tr>
 <tr>
@@ -416,6 +444,7 @@ string
 </td>
 <td>
 <em>(Optional)</em>
+<p>Tags that will be injected into the CUE instance.</p>
 </td>
 </tr>
 <tr>
@@ -429,7 +458,7 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-<p>TagVars are vars that will be available to use in tags</p>
+<p>TagVars that will be available to the CUE instance.</p>
 </td>
 </tr>
 <tr>
@@ -441,6 +470,7 @@ string
 </td>
 <td>
 <em>(Optional)</em>
+<p>The CUE expression(s) to execute.</p>
 </td>
 </tr>
 <tr>
@@ -452,17 +482,7 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-</td>
-</tr>
-<tr>
-<td>
-<code>package</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
+<p>Dependencies that must be ready before the CUE instance is reconciled.</p>
 </td>
 </tr>
 <tr>
@@ -568,7 +588,7 @@ Validation
 </td>
 <td>
 <em>(Optional)</em>
-<p>TODO: this could be an array of validations
+<p>TODO(maybe): this could be an array of validations
 in which case the policy may need to apply to all resources
 would allow for greater flexibility</p>
 </td>
@@ -712,8 +732,6 @@ the CueInstance.</p>
 </table>
 </div>
 </div>
-<h3 id="cue.contrib.flux.io/v1alpha1.PolicyRule">PolicyRule
-(<code>string</code> alias)</h3>
 <h3 id="cue.contrib.flux.io/v1alpha1.ResourceInventory">ResourceInventory
 </h3>
 <p>
@@ -798,6 +816,7 @@ string
 (<em>Appears on:</em>
 <a href="#cue.contrib.flux.io/v1alpha1.CueInstanceSpec">CueInstanceSpec</a>)
 </p>
+<p>TagVar is a tag variable with a required name and optional value</p>
 <div class="md-typeset__scrollwrap">
 <div class="md-typeset__table">
 <table>
@@ -810,7 +829,7 @@ string
 <tbody>
 <tr>
 <td>
-<code>key</code><br>
+<code>name</code><br>
 <em>
 string
 </em>

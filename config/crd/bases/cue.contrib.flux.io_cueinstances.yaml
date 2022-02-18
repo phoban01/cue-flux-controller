@@ -36,6 +36,8 @@ spec:
             description: CueInstanceSpec defines the desired state of CueInstance
             properties:
               dependsOn:
+                description: Dependencies that must be ready before the CUE instance
+                  is reconciled.
                 items:
                   description: CrossNamespaceDependencyReference holds the reference
                     to a dependency.
@@ -51,6 +53,7 @@ spec:
                   type: object
                 type: array
               expressions:
+                description: The CUE expression(s) to execute.
                 items:
                   type: string
                 type: array
@@ -60,6 +63,7 @@ spec:
                   when patching fails due to an immutable field change.
                 type: boolean
               interval:
+                description: The interval at which the instance will be reconciled.
                 type: string
               kubeConfig:
                 description: The KubeConfig for reconciling the CueInstance on a remote
@@ -83,8 +87,11 @@ spec:
                     type: object
                 type: object
               package:
+                description: The CUE package to use for the CUE instance. This is
+                  useful when applying a CUE schema to plain yaml files.
                 type: string
               path:
+                description: The path at which the CUE instance will be built from.
                 type: string
               prune:
                 description: Prune enables garbage collection.
@@ -95,12 +102,15 @@ spec:
                   value to retry failures.
                 type: string
               root:
+                description: The module root of the CUE instance.
                 type: string
               serviceAccountName:
                 description: The name of the Kubernetes service account to impersonate
                   when reconciling this CueInstance.
                 type: string
               sourceRef:
+                description: A reference to a Flux Source from which an artifact will
+                  be downloaded and the CUE instance built.
                 properties:
                   apiVersion:
                     description: API version of the referent.
@@ -128,26 +138,31 @@ spec:
                   Defaults to false.
                 type: boolean
               tagVars:
-                description: TagVars are vars that will be available to use in tags
+                description: TagVars that will be available to the CUE instance.
                 items:
+                  description: TagVar is a tag variable with a required name and optional
+                    value
                   properties:
-                    key:
+                    name:
                       type: string
                     value:
                       type: string
                   required:
-                  - key
+                  - name
                   type: object
                 type: array
               tags:
+                description: Tags that will be injected into the CUE instance.
                 items:
+                  description: TagVar is a tag variable with a required name and optional
+                    value
                   properties:
-                    key:
+                    name:
                       type: string
                     value:
                       type: string
                   required:
-                  - key
+                  - name
                   type: object
                 type: array
               timeout:
@@ -155,9 +170,9 @@ spec:
                   Defaults to 'Interval' duration.
                 type: string
               validate:
-                description: 'TODO: this could be an array of validations in which
-                  case the policy may need to apply to all resources would allow for
-                  greater flexibility'
+                description: 'TODO(maybe): this could be an array of validations in
+                  which case the policy may need to apply to all resources would allow
+                  for greater flexibility'
                 properties:
                   mode:
                     default: Audit

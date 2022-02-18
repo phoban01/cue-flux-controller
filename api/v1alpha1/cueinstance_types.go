@@ -132,7 +132,7 @@ type CueInstanceSpec struct {
 // TagVar is a tag variable with a required name and optional value
 type TagVar struct {
 	// +required
-	Name string `json:"key"`
+	Name string `json:"name"`
 
 	// +optional
 	Value string `json:"value,omitempty"`
