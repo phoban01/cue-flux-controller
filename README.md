@@ -47,7 +47,7 @@ This will install the cue-controller in the `flux-system` namespace.
 ### Usage
 #### Define a Git repository source
 
-Create a source object that points to a Git repository containing Kubernetes and Kustomize manifests:
+Create a source object that points to a Git repository containing Kubernetes manifests and a Cue module:
 
 ```yaml
 apiVersion: source.toolkit.fluxcd.io/v1beta1
@@ -64,13 +64,13 @@ spec:
 
 #### Define a CueInstance
 
-Create a `CueInstance` resource that references the `GitRepository` source previously defined.
+Create a `CueInstance` resource that references the `GitRepository` source previously defined. The `CueInstance` specifies the module root and the expression we wish to build.
 
 ```yaml
 apiVersion: cue.contrib.flux.io/v1alpha1
 kind: CueInstance
 metadata:
-  name: podinfo-dev
+  name: podinfo
   namespace: default
 spec:
   interval: 5m
