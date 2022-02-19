@@ -77,8 +77,28 @@ spec:
   root: "./examples/podinfo"
   expressions:
   - out
+  tags:
+  - name: hpa
   prune: true
   sourceRef:
     kind: GitRepository
     name: cuedemo
 ```
+
+Verify that the resources have been deployed:
+
+`bash
+kubectl -n default get sa,po,svc,hpa -l app=podinfo
+
+NAME                     SECRETS   AGE
+serviceaccount/podinfo   1         10s
+
+NAME                           READY   STATUS    RESTARTS   AGE
+pod/podinfo-59b967cb85-vd42l   1/1     Running   0          11s
+
+NAME              TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE
+service/podinfo   ClusterIP   10.96.171.221   <none>        9898/TCP   5s
+
+NAME                                          REFERENCE            TARGETS                          MINPODS   MAXPODS   REPLICAS   AGE
+horizontalpodautoscaler.autoscaling/podinfo   Deployment/podinfo   <unknown>/500Mi, <unknown>/75%   1         4         1          10s
+`
