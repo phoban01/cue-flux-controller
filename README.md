@@ -33,17 +33,19 @@ controllers installed in your cluster. Visit [https://fluxcd.io/docs/get-started
 
 ### Installation
 
-Install the CRDs:
+To install the latest release of the controller execute the following:
 ```bash
-make install
+RELEASE=$(gh release list -R phoban01/cue-flux-controller -L 1 | awk '{print $1}')
+RELEASE_MANIFESTS=https://github.com/phoban01/cue-flux-controller/releases/download/$RELEASE
+kubectl apply -f "$RELEASE_MANIFESTS/cue-controller.crds.yaml"
+kubectl apply -f "$RELEASE_MANIFESTS/cue-controller.rbac.yaml"
+kubectl apply -f "$RELEASE_MANIFESTS/cue-controller.deployment.yaml"
 ```
 
-Deploy the controller:
-```bash
-make deploy
-```
+This will install the cue-controller in the `flux-system` namespace.
 
-### Define a Git repository source
+### Usage
+#### Define a Git repository source
 
 Create a source object that points to a Git repository containing Kubernetes and Kustomize manifests:
 
@@ -60,7 +62,7 @@ spec:
     branch: main
 ```
 
-### Define a CueInstance
+#### Define a CueInstance
 
 Create a `CueInstance` resource that references the `GitRepository` source previously defined.
 
