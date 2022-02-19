@@ -89,7 +89,10 @@ Verify that the resources have been deployed:
 
 ```bash
 kubectl -n default get sa,po,svc,hpa -l app=podinfo
+```
 
+Should return similar to the following:
+```bash
 NAME                     SECRETS   AGE
 serviceaccount/podinfo   1         10s
 
