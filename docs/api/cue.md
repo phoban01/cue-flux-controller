@@ -92,7 +92,9 @@ string
 <td>
 <code>metadata</code><br>
 <em>
-k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
 </em>
 </td>
 <td>
@@ -117,7 +119,9 @@ CueInstanceSpec
 <td>
 <code>interval</code><br>
 <em>
-k8s.io/apimachinery/pkg/apis/meta/v1.Duration
+<a href="https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#Duration">
+Kubernetes meta/v1.Duration
+</a>
 </em>
 </td>
 <td>
@@ -219,7 +223,9 @@ a CUE schema to plain yaml files.</p>
 <td>
 <code>dependsOn</code><br>
 <em>
-[]github.com/fluxcd/pkg/runtime/dependency.CrossNamespaceDependencyReference
+<a href="https://godoc.org/github.com/fluxcd/pkg/runtime/dependency#CrossNamespaceDependencyReference">
+[]Runtime dependency.CrossNamespaceDependencyReference
+</a>
 </em>
 </td>
 <td>
@@ -242,7 +248,9 @@ bool
 <td>
 <code>retryInterval</code><br>
 <em>
-k8s.io/apimachinery/pkg/apis/meta/v1.Duration
+<a href="https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#Duration">
+Kubernetes meta/v1.Duration
+</a>
 </em>
 </td>
 <td>
@@ -256,7 +264,9 @@ value to retry failures.</p>
 <td>
 <code>timeout</code><br>
 <em>
-k8s.io/apimachinery/pkg/apis/meta/v1.Duration
+<a href="https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#Duration">
+Kubernetes meta/v1.Duration
+</a>
 </em>
 </td>
 <td>
@@ -375,7 +385,9 @@ CueInstanceStatus
 <td>
 <code>interval</code><br>
 <em>
-k8s.io/apimachinery/pkg/apis/meta/v1.Duration
+<a href="https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#Duration">
+Kubernetes meta/v1.Duration
+</a>
 </em>
 </td>
 <td>
@@ -477,7 +489,9 @@ a CUE schema to plain yaml files.</p>
 <td>
 <code>dependsOn</code><br>
 <em>
-[]github.com/fluxcd/pkg/runtime/dependency.CrossNamespaceDependencyReference
+<a href="https://godoc.org/github.com/fluxcd/pkg/runtime/dependency#CrossNamespaceDependencyReference">
+[]Runtime dependency.CrossNamespaceDependencyReference
+</a>
 </em>
 </td>
 <td>
@@ -500,7 +514,9 @@ bool
 <td>
 <code>retryInterval</code><br>
 <em>
-k8s.io/apimachinery/pkg/apis/meta/v1.Duration
+<a href="https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#Duration">
+Kubernetes meta/v1.Duration
+</a>
 </em>
 </td>
 <td>
@@ -514,7 +530,9 @@ value to retry failures.</p>
 <td>
 <code>timeout</code><br>
 <em>
-k8s.io/apimachinery/pkg/apis/meta/v1.Duration
+<a href="https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#Duration">
+Kubernetes meta/v1.Duration
+</a>
 </em>
 </td>
 <td>
@@ -618,7 +636,9 @@ would allow for greater flexibility</p>
 <td>
 <code>ReconcileRequestStatus</code><br>
 <em>
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#ReconcileRequestStatus">
 github.com/fluxcd/pkg/apis/meta.ReconcileRequestStatus
+</a>
 </em>
 </td>
 <td>
@@ -643,7 +663,9 @@ int64
 <td>
 <code>conditions</code><br>
 <em>
-[]k8s.io/apimachinery/pkg/apis/meta/v1.Condition
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#condition-v1-meta">
+[]Kubernetes meta/v1.Condition
+</a>
 </em>
 </td>
 <td>
@@ -714,7 +736,9 @@ ResourceInventory
 <td>
 <code>secretRef</code><br>
 <em>
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#LocalObjectReference">
 github.com/fluxcd/pkg/apis/meta.LocalObjectReference
+</a>
 </em>
 </td>
 <td>
