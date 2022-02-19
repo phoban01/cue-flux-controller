@@ -26,6 +26,9 @@ The cue-controller is **heavily** based on the codebase for [kustomize-controlle
 - [ ] Support for decrypting secrets with Mozilla SOPS
 - [ ] (TBD: Support for CUE tooling or workflows...)
 
+Specifications:
+* [API](docs/api/v1alpha1/README.md)
+
 ## Usage
 
 The cue-controller requires that you already have the [GitOps toolkit](https://fluxcd.io/docs/components/)
