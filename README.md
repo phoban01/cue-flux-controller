@@ -8,6 +8,12 @@ The cue-controller is an experimental Kubernetes controller for the CUE language
 
 The cue-controller is **heavily** based on the codebase for [kustomize-controller](https://github.com/fluxcd/kustomize-controller) and will aim for feature parity insofar as it makes sense to do so.
 
+Use cases:
+- GitOps Kubernetes resources using pure CUE, CUE+yaml or Yaml alone
+- Validate CUE or Yaml using CUE policies
+- Manage applications and infrastructure using modules & packages
+- Single policy language to rule them all: write policy for local development, CI and last-mile in CUE
+
 ### Development Roadmap: Phase 1
 - [x] Build CUE instances from a source repository
 - [x] Specify the CUE working directory and module root
