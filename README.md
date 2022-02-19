@@ -87,7 +87,7 @@ spec:
 
 Verify that the resources have been deployed:
 
-`bash
+```bash
 kubectl -n default get sa,po,svc,hpa -l app=podinfo
 
 NAME                     SECRETS   AGE
@@ -101,4 +101,4 @@ service/podinfo   ClusterIP   10.96.171.221   <none>        9898/TCP   5s
 
 NAME                                          REFERENCE            TARGETS                          MINPODS   MAXPODS   REPLICAS   AGE
 horizontalpodautoscaler.autoscaling/podinfo   Deployment/podinfo   <unknown>/500Mi, <unknown>/75%   1         4         1          10s
-`
+```
