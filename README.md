@@ -4,6 +4,12 @@
 [![license](https://img.shields.io/github/license/phoban01/cue-flux-controller.svg)](https://github.com/fluxcd/cue-flux-controller/blob/main/LICENSE)
 [![release](https://img.shields.io/github/release/phoban01/cue-flux-controller/all.svg)](https://github.com/phoban01/cue-flux-controller/releases)
 
+<p align="center">
+    <img src="https://github.com/cncf/artwork/raw/master/projects/flux/horizontal/white/flux-horizontal-white.png" width="150">
+    &nbsp;&nbsp;
+    <img src="https://github.com/cue-lang/cuelang.org/blob/master/assets/icons/logo.svg" width="75">
+</p>
+
 The cue-controller is an experimental Kubernetes controller for the CUE language. It integrates with Flux using the GitOps Toolkit and enables building GitOps pipelines directly in CUE.
 
 The cue-controller is **heavily** based on the codebase for [kustomize-controller](https://github.com/fluxcd/kustomize-controller) and will aim for feature parity insofar as it makes sense to do so.
@@ -28,6 +34,13 @@ The cue-controller is **heavily** based on the codebase for [kustomize-controlle
 
 Specifications:
 * [API](docs/api/v1alpha1/cue.md)
+
+For more on CUE visit: https://cuelang.org/
+For more on Flux visit: https://fluxcd.io/
+
+## Examples
+
+Checkout https://github.com/phoban01/cuedemo for examples and patterns of using the cue-controller to build GitOps pipelines.
 
 ## Usage
 
