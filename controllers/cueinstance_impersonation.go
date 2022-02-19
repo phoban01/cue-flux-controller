@@ -98,21 +98,21 @@ func (ci *CueInstanceImpersonation) GetServiceAccountToken(ctx context.Context) 
 // If ServiceAccountName is set, will use the cluster provided kubeconfig impersonating the SA.
 // If --kubeconfig is set, will use the kubeconfig file at that location.
 // Otherwise will assume running in cluster and use the cluster provided kubeconfig.
-func (ki *CueInstanceImpersonation) GetClient(ctx context.Context) (client.Client, *polling.StatusPoller, error) {
+func (ci *CueInstanceImpersonation) GetClient(ctx context.Context) (client.Client, *polling.StatusPoller, error) {
 	switch {
-	case ki.cueInstance.Spec.KubeConfig != nil:
-		return ki.clientForKubeConfig(ctx)
-	case ki.defaultServiceAccount != "" || ki.cueInstance.Spec.ServiceAccountName != "":
-		return ki.clientForServiceAccountOrDefault()
+	case ci.cueInstance.Spec.KubeConfig != nil:
+		return ci.clientForKubeConfig(ctx)
+	case ci.defaultServiceAccount != "" || ci.cueInstance.Spec.ServiceAccountName != "":
+		return ci.clientForServiceAccountOrDefault()
 	default:
-		return ki.Client, ki.statusPoller, nil
+		return ci.Client, ci.statusPoller, nil
 	}
 }
 
 // CanFinalize asserts if the given CueInstance can be finalized using impersonation.
-func (ki *CueInstanceImpersonation) CanFinalize(ctx context.Context) bool {
-	name := ki.defaultServiceAccount
-	if sa := ki.cueInstance.Spec.ServiceAccountName; sa != "" {
+func (ci *CueInstanceImpersonation) CanFinalize(ctx context.Context) bool {
+	name := ci.defaultServiceAccount
+	if sa := ci.cueInstance.Spec.ServiceAccountName; sa != "" {
 		name = sa
 	}
 	if name == "" {
@@ -126,33 +126,33 @@ func (ki *CueInstanceImpersonation) CanFinalize(ctx context.Context) bool {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: ki.cueInstance.Namespace,
+			Namespace: ci.cueInstance.Namespace,
 		},
 	}
-	if err := ki.Client.Get(ctx, client.ObjectKeyFromObject(sa), sa); err != nil {
+	if err := ci.Client.Get(ctx, client.ObjectKeyFromObject(sa), sa); err != nil {
 		return false
 	}
 
 	return true
 }
 
-func (ki *CueInstanceImpersonation) setImpersonationConfig(restConfig *rest.Config) {
-	name := ki.defaultServiceAccount
-	if sa := ki.cueInstance.Spec.ServiceAccountName; sa != "" {
+func (ci *CueInstanceImpersonation) setImpersonationConfig(restConfig *rest.Config) {
+	name := ci.defaultServiceAccount
+	if sa := ci.cueInstance.Spec.ServiceAccountName; sa != "" {
 		name = sa
 	}
 	if name != "" {
-		username := fmt.Sprintf("system:serviceaccount:%s:%s", ki.cueInstance.GetNamespace(), name)
+		username := fmt.Sprintf("system:serviceaccount:%s:%s", ci.cueInstance.GetNamespace(), name)
 		restConfig.Impersonate = rest.ImpersonationConfig{UserName: username}
 	}
 }
 
-func (ki *CueInstanceImpersonation) clientForServiceAccountOrDefault() (client.Client, *polling.StatusPoller, error) {
+func (ci *CueInstanceImpersonation) clientForServiceAccountOrDefault() (client.Client, *polling.StatusPoller, error) {
 	restConfig, err := config.GetConfig()
 	if err != nil {
 		return nil, nil, err
 	}
-	ki.setImpersonationConfig(restConfig)
+	ci.setImpersonationConfig(restConfig)
 
 	restMapper, err := apiutil.NewDynamicRESTMapper(restConfig)
 	if err != nil {
@@ -169,8 +169,8 @@ func (ki *CueInstanceImpersonation) clientForServiceAccountOrDefault() (client.C
 
 }
 
-func (ki *CueInstanceImpersonation) clientForKubeConfig(ctx context.Context) (client.Client, *polling.StatusPoller, error) {
-	kubeConfigBytes, err := ki.getKubeConfig(ctx)
+func (ci *CueInstanceImpersonation) clientForKubeConfig(ctx context.Context) (client.Client, *polling.StatusPoller, error) {
+	kubeConfigBytes, err := ci.getKubeConfig(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -179,7 +179,7 @@ func (ki *CueInstanceImpersonation) clientForKubeConfig(ctx context.Context) (cl
 	if err != nil {
 		return nil, nil, err
 	}
-	ki.setImpersonationConfig(restConfig)
+	ci.setImpersonationConfig(restConfig)
 
 	restMapper, err := apiutil.NewDynamicRESTMapper(restConfig)
 	if err != nil {
@@ -196,14 +196,14 @@ func (ki *CueInstanceImpersonation) clientForKubeConfig(ctx context.Context) (cl
 	return client, statusPoller, err
 }
 
-func (ki *CueInstanceImpersonation) getKubeConfig(ctx context.Context) ([]byte, error) {
+func (ci *CueInstanceImpersonation) getKubeConfig(ctx context.Context) ([]byte, error) {
 	secretName := types.NamespacedName{
-		Namespace: ki.cueInstance.GetNamespace(),
-		Name:      ki.cueInstance.Spec.KubeConfig.SecretRef.Name,
+		Namespace: ci.cueInstance.GetNamespace(),
+		Name:      ci.cueInstance.Spec.KubeConfig.SecretRef.Name,
 	}
 
 	var secret corev1.Secret
-	if err := ki.Get(ctx, secretName, &secret); err != nil {
+	if err := ci.Get(ctx, secretName, &secret); err != nil {
 		return nil, fmt.Errorf("unable to read KubeConfig secret '%s' error: %w", secretName.String(), err)
 	}
 
