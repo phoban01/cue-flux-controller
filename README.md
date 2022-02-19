@@ -27,7 +27,7 @@ The cue-controller is **heavily** based on the codebase for [kustomize-controlle
 - [ ] (TBD: Support for CUE tooling or workflows...)
 
 Specifications:
-* [API](docs/api/v1alpha1/README.md)
+* [API](docs/api/v1alpha1/cue.md)
 
 ## Usage
 
