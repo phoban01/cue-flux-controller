@@ -501,7 +501,7 @@ func (r *CueInstanceReconciler) build(ctx context.Context,
 		}
 	}
 
-	tagVars := make(map[string]load.TagVar, len(instance.Spec.TagVars))
+	tagVars := load.DefaultTagVars()
 	for _, t := range instance.Spec.TagVars {
 		tagVars[t.Name] = load.TagVar{
 			Func: func() (ast.Expr, error) {
