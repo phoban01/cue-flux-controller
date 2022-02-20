@@ -29,7 +29,7 @@ Use cases:
 - [x] Policy-mode (use CUE only for schema validation, with configurable failure modes)
 - [x] Validation failure notifications (via notification controller)
 - [x] Dependency ordering using `dependsOn`
-- [ ] Health checks for deployed workloads
+- [x] Health checks for deployed workloads
 - [ ] Support for decrypting secrets with Mozilla SOPS
 - [ ] (TBD: Support for CUE tooling or workflows...)
 
