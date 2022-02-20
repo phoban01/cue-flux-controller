@@ -49,6 +49,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/reference"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling"
+	"sigs.k8s.io/cli-utils/pkg/object"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -56,6 +57,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -394,7 +396,7 @@ func (r *CueInstanceReconciler) reconcile(
 	resourceManager.SetOwnerLabels(objects, cueInstance.GetName(), cueInstance.GetNamespace())
 
 	// validate and apply resources in stages
-	_, changeSet, err := r.apply(ctx, resourceManager, cueInstance, revision, objects)
+	drifted, changeSet, err := r.apply(ctx, resourceManager, cueInstance, revision, objects)
 	if err != nil {
 		return cuev1alpha1.CueInstanceNotReady(
 			cueInstance,
@@ -459,6 +461,17 @@ func (r *CueInstanceReconciler) reconcile(
 			newInventory,
 			revision,
 			cuev1alpha1.PruneFailedReason,
+			err.Error(),
+		), err
+	}
+
+	// health assessment
+	if err := r.checkHealth(ctx, resourceManager, cueInstance, revision, drifted, changeSet.ToObjMetadataSet()); err != nil {
+		return cuev1alpha1.CueInstanceNotReadyInventory(
+			cueInstance,
+			newInventory,
+			revision,
+			cuev1alpha1.HealthCheckFailedReason,
 			err.Error(),
 		), err
 	}
@@ -902,6 +915,63 @@ func (r *CueInstanceReconciler) prune(ctx context.Context, manager *ssa.Resource
 	}
 
 	return false, nil
+}
+
+func (r *CueInstanceReconciler) checkHealth(ctx context.Context, manager *ssa.ResourceManager, cueInstance cuev1alpha1.CueInstance, revision string, drifted bool, objects object.ObjMetadataSet) error {
+	if len(cueInstance.Spec.HealthChecks) == 0 && !cueInstance.Spec.Wait {
+		return nil
+	}
+
+	checkStart := time.Now()
+	var err error
+	if !cueInstance.Spec.Wait {
+		objects, err = referenceToObjMetadataSet(cueInstance.Spec.HealthChecks)
+		if err != nil {
+			return err
+		}
+	}
+
+	if len(objects) == 0 {
+		return nil
+	}
+
+	// guard against deadlock (waiting on itself)
+	var toCheck []object.ObjMetadata
+	for _, object := range objects {
+		if object.GroupKind.Kind == cuev1alpha1.CueInstanceKind &&
+			object.Name == cueInstance.GetName() &&
+			object.Namespace == cueInstance.GetNamespace() {
+			continue
+		}
+		toCheck = append(toCheck, object)
+	}
+
+	// find the previous health check result
+	wasHealthy := apimeta.IsStatusConditionTrue(cueInstance.Status.Conditions, cuev1alpha1.HealthyCondition)
+
+	// set the Healthy and Ready conditions to progressing
+	message := fmt.Sprintf("running health checks with a timeout of %s", cueInstance.GetTimeout().String())
+	c := cuev1alpha1.CueInstanceProgressing(cueInstance, message)
+	cuev1alpha1.SetCueInstanceHealthiness(&c, metav1.ConditionUnknown, meta.ProgressingReason, message)
+	if err := r.patchStatus(ctx, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&cueInstance)}, c.Status); err != nil {
+		return fmt.Errorf("unable to update the healthy status to progressing, error: %w", err)
+	}
+
+	// check the health with a default timeout of 30sec shorter than the reconciliation interval
+	if err := manager.WaitForSet(toCheck, ssa.WaitOptions{
+		Interval: 5 * time.Second,
+		Timeout:  cueInstance.GetTimeout(),
+	}); err != nil {
+		return fmt.Errorf("Health check failed after %s, %w", time.Since(checkStart).String(), err)
+	}
+
+	// emit event if the previous health check failed
+	if !wasHealthy || (cueInstance.Status.LastAppliedRevision != revision && drifted) {
+		r.event(ctx, cueInstance, revision, events.EventSeverityInfo,
+			fmt.Sprintf("Health check passed in %s", time.Since(checkStart).String()), nil)
+	}
+
+	return nil
 }
 
 func (r *CueInstanceReconciler) getSource(ctx context.Context, cueInstance cuev1alpha1.CueInstance) (sourcev1.Source, error) {

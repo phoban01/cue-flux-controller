@@ -62,6 +62,31 @@ spec:
                 description: Force instructs the controller to recreate resources
                   when patching fails due to an immutable field change.
                 type: boolean
+              healthChecks:
+                description: A list of resources to be included in the health assessment.
+                items:
+                  description: NamespacedObjectKindReference contains enough information
+                    to let you locate the typed referenced object in any namespace
+                  properties:
+                    apiVersion:
+                      description: API version of the referent, if not specified the
+                        Kubernetes preferred version will be used
+                      type: string
+                    kind:
+                      description: Kind of the referent
+                      type: string
+                    name:
+                      description: Name of the referent
+                      type: string
+                    namespace:
+                      description: Namespace of the referent, when not specified it
+                        acts as LocalObjectReference
+                      type: string
+                  required:
+                  - kind
+                  - name
+                  type: object
+                type: array
               interval:
                 description: The interval at which the instance will be reconciled.
                 type: string
@@ -185,6 +210,11 @@ spec:
                 required:
                 - schema
                 type: object
+              wait:
+                description: Wait instructs the controller to check the health of
+                  all the reconciled resources. When enabled, the HealthChecks are
+                  ignored. Defaults to false.
+                type: boolean
             required:
             - interval
             - prune

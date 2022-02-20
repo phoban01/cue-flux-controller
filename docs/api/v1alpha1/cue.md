@@ -235,6 +235,20 @@ a CUE schema to plain yaml files.</p>
 </tr>
 <tr>
 <td>
+<code>healthChecks</code><br>
+<em>
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#NamespacedObjectKindReference">
+[]github.com/fluxcd/pkg/apis/meta.NamespacedObjectKindReference
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>A list of resources to be included in the health assessment.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>prune</code><br>
 <em>
 bool
@@ -327,6 +341,19 @@ bool
 <em>(Optional)</em>
 <p>Force instructs the controller to recreate resources
 when patching fails due to an immutable field change.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>wait</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Wait instructs the controller to check the health of all the reconciled resources.
+When enabled, the HealthChecks are ignored. Defaults to false.</p>
 </td>
 </tr>
 <tr>
@@ -501,6 +528,20 @@ a CUE schema to plain yaml files.</p>
 </tr>
 <tr>
 <td>
+<code>healthChecks</code><br>
+<em>
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#NamespacedObjectKindReference">
+[]github.com/fluxcd/pkg/apis/meta.NamespacedObjectKindReference
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>A list of resources to be included in the health assessment.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>prune</code><br>
 <em>
 bool
@@ -593,6 +634,19 @@ bool
 <em>(Optional)</em>
 <p>Force instructs the controller to recreate resources
 when patching fails due to an immutable field change.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>wait</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Wait instructs the controller to check the health of all the reconciled resources.
+When enabled, the HealthChecks are ignored. Defaults to false.</p>
 </td>
 </tr>
 <tr>

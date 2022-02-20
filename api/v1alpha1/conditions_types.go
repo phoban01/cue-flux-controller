@@ -17,6 +17,10 @@ limitations under the License.
 package v1alpha1
 
 const (
+	// HealthyCondition represents the last recorded
+	// health assessment result.
+	HealthyCondition string = "Healthy"
+
 	// ArtifactFailedReason represents the fact that the
 	// source artifact download failed.
 	ArtifactFailedReason string = "ArtifactFailed"
@@ -28,4 +32,8 @@ const (
 	// PruneFailedReason represents the fact that the
 	// pruning of the Kustomization failed.
 	PruneFailedReason string = "PruneFailed"
+
+	// HealthCheckFailedReason represents the fact that
+	// one of the health checks failed.
+	HealthCheckFailedReason string = "HealthCheckFailed"
 )

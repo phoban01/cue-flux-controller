@@ -22,6 +22,7 @@ import (
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/runtime/dependency"
 
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -86,6 +87,10 @@ type CueInstanceSpec struct {
 	// +optional
 	DependsOn []dependency.CrossNamespaceDependencyReference `json:"dependsOn,omitempty"`
 
+	// A list of resources to be included in the health assessment.
+	// +optional
+	HealthChecks []meta.NamespacedObjectKindReference `json:"healthChecks,omitempty"`
+
 	// Prune enables garbage collection.
 	// +required
 	Prune bool `json:"prune"`
@@ -121,6 +126,11 @@ type CueInstanceSpec struct {
 	// +kubebuilder:default:=false
 	// +optional
 	Force bool `json:"force,omitempty"`
+
+	// Wait instructs the controller to check the health of all the reconciled resources.
+	// When enabled, the HealthChecks are ignored. Defaults to false.
+	// +optional
+	Wait bool `json:"wait,omitempty"`
 
 	// TODO(maybe): this could be an array of validations
 	// in which case the policy may need to apply to all resources
@@ -203,6 +213,16 @@ func (in *CueInstance) GetStatusConditions() *[]metav1.Condition {
 func CueInstanceProgressing(k CueInstance, message string) CueInstance {
 	meta.SetResourceCondition(&k, meta.ReadyCondition, metav1.ConditionUnknown, meta.ProgressingReason, message)
 	return k
+}
+
+// SetCueInstanceHealthiness sets the HealthyCondition status for a CueInstance.
+func SetCueInstanceHealthiness(k *CueInstance, status metav1.ConditionStatus, reason, message string) {
+	if !k.Spec.Wait && len(k.Spec.HealthChecks) == 0 {
+		apimeta.RemoveStatusCondition(k.GetStatusConditions(), HealthyCondition)
+	} else {
+		meta.SetResourceCondition(k, HealthyCondition, status, reason, trimString(message, MaxConditionMessageLength))
+	}
+
 }
 
 // SetCueInstanceReadiness sets the ReadyCondition, ObservedGeneration, and LastAttemptedRevision, on the CueInstance.
