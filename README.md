@@ -31,7 +31,6 @@ Use cases:
 - [x] Dependency ordering using `dependsOn`
 - [x] Health checks for deployed workloads
 - [ ] Support for decrypting secrets with Mozilla SOPS
-- [ ] (TBD: Support for CUE tooling or workflows...)
 
 Specifications:
 * [API](docs/api/v1alpha1/cue.md)
