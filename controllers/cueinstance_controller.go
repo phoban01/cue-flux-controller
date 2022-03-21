@@ -63,7 +63,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 	cuev1alpha1 "github.com/phoban01/cue-flux-controller/api/v1alpha1"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 
@@ -212,7 +212,7 @@ func (r *CueInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if len(cueInstance.Spec.DependsOn) > 0 {
 		if err := r.checkDependencies(source, cueInstance); err != nil {
 			cueInstance = cuev1alpha1.CueInstanceNotReady(
-				cueInstance, source.GetArtifact().Revision, meta.DependencyNotReadyReason, err.Error())
+				cueInstance, source.GetArtifact().Revision, meta.FailedReason, err.Error())
 			if err := r.patchStatus(ctx, req, cueInstance.Status); err != nil {
 				log.Error(err, "unable to update status for dependency not ready")
 				return ctrl.Result{Requeue: true}, err
@@ -292,7 +292,7 @@ func (r *CueInstanceReconciler) reconcile(
 		return cuev1alpha1.CueInstanceNotReady(
 			cueInstance,
 			revision,
-			sourcev1.StorageOperationFailedReason,
+			sourcev1.DirCreationFailedReason,
 			err.Error(),
 		), err
 	}
@@ -358,7 +358,7 @@ func (r *CueInstanceReconciler) reconcile(
 		return cuev1alpha1.CueInstanceNotReady(
 			cueInstance,
 			revision,
-			meta.ReconciliationFailedReason,
+			meta.FailedReason,
 			err.Error(),
 		), fmt.Errorf("failed to build kube client: %w", err)
 	}
@@ -401,7 +401,7 @@ func (r *CueInstanceReconciler) reconcile(
 		return cuev1alpha1.CueInstanceNotReady(
 			cueInstance,
 			revision,
-			meta.ReconciliationFailedReason,
+			meta.FailedReason,
 			err.Error(),
 		), err
 	}
@@ -413,7 +413,7 @@ func (r *CueInstanceReconciler) reconcile(
 		return cuev1alpha1.CueInstanceNotReady(
 			cueInstance,
 			revision,
-			meta.ReconciliationFailedReason,
+			meta.FailedReason,
 			err.Error(),
 		), err
 	}
@@ -426,7 +426,7 @@ func (r *CueInstanceReconciler) reconcile(
 			return cuev1alpha1.CueInstanceNotReady(
 				cueInstance,
 				revision,
-				meta.ReconciliationFailedReason,
+				meta.FailedReason,
 				err.Error(),
 			), err
 		}
@@ -480,7 +480,7 @@ func (r *CueInstanceReconciler) reconcile(
 		cueInstance,
 		newInventory,
 		revision,
-		meta.ReconciliationSucceededReason,
+		meta.FailedReason,
 		fmt.Sprintf("Applied revision: %s", revision),
 	), err
 }
@@ -799,7 +799,10 @@ func (r *CueInstanceReconciler) checkDependencies(source sourcev1.Source, cueIns
 		if d.Namespace == "" {
 			d.Namespace = cueInstance.GetNamespace()
 		}
-		dName := types.NamespacedName(d)
+		dName := types.NamespacedName{
+			Namespace: d.Namespace,
+			Name:      d.Name,
+		}
 		var k cuev1alpha1.CueInstance
 		err := r.Get(context.Background(), dName, &k)
 		if err != nil {
@@ -1071,44 +1074,26 @@ func (r *CueInstanceReconciler) finalize(ctx context.Context, cueInstance cuev1a
 }
 
 func (r *CueInstanceReconciler) event(ctx context.Context, cueInstance cuev1alpha1.CueInstance, revision, severity, msg string, metadata map[string]string) {
-	log := ctrl.LoggerFrom(ctx)
-
-	if r.EventRecorder != nil {
-		annotations := map[string]string{
-			cuev1alpha1.GroupVersion.Group + "/revision": revision,
-		}
-
-		eventtype := "Normal"
-		if severity == events.EventSeverityError {
-			eventtype = "Warning"
-		}
-
-		r.EventRecorder.AnnotatedEventf(&cueInstance, annotations, eventtype, severity, msg)
+	if metadata == nil {
+		metadata = map[string]string{}
 	}
 
-	if r.ExternalEventRecorder != nil {
-		objRef, err := reference.GetReference(r.Scheme, &cueInstance)
-		if err != nil {
-			log.Error(err, "unable to send event")
-			return
-		}
-		if metadata == nil {
-			metadata = map[string]string{}
-		}
-		if revision != "" {
-			metadata["revision"] = revision
-		}
-
-		reason := severity
-		if c := apimeta.FindStatusCondition(cueInstance.Status.Conditions, meta.ReadyCondition); c != nil {
-			reason = c.Reason
-		}
-
-		if err := r.ExternalEventRecorder.Eventf(*objRef, metadata, severity, reason, msg); err != nil {
-			log.Error(err, "unable to send event")
-			return
-		}
+	if revision != "" {
+		metadata[cuev1alpha1.GroupVersion.Group+"/revision"] = revision
 	}
+
+	reason := severity
+
+	if c := apimeta.FindStatusCondition(cueInstance.Status.Conditions, meta.ReadyCondition); c != nil {
+		reason = c.Reason
+	}
+
+	eventtype := "Normal"
+	if severity == events.EventSeverityError {
+		eventtype = "Warning"
+	}
+
+	r.EventRecorder.AnnotatedEventf(&cueInstance, metadata, eventtype, reason, msg)
 }
 
 func (r *CueInstanceReconciler) recordReadiness(ctx context.Context, cueInstance cuev1alpha1.CueInstance) {

@@ -35,12 +35,13 @@ import (
 	"github.com/fluxcd/pkg/runtime/controller"
 	"github.com/fluxcd/pkg/runtime/testenv"
 	"github.com/fluxcd/pkg/testserver"
-	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 	cuev1alpha1 "github.com/phoban01/cue-flux-controller/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
+	kuberecorder "k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -62,7 +63,7 @@ var (
 	testEnv      *testenv.Environment
 	testServer   *testserver.ArtifactServer
 	testMetricsH controller.Metrics
-	testEventsH  controller.Events
+	testEventsH  kuberecorder.EventRecorder
 	ctx          = ctrl.SetupSignalHandler()
 	kubeConfig   []byte
 	debugMode    = os.Getenv("DEBUG_TEST") != ""
@@ -146,12 +147,11 @@ func TestMain(m *testing.M) {
 
 	runInContext(func(testEnv *testenv.Environment) {
 		controllerName := "cue-controller"
-		testEventsH = controller.MakeEvents(testEnv, controllerName, nil)
 		testMetricsH = controller.MustMakeMetrics(testEnv)
 		reconciler = &CueInstanceReconciler{
 			ControllerName:  controllerName,
 			Client:          testEnv,
-			EventRecorder:   testEventsH.EventRecorder,
+			EventRecorder:   testEnv.GetEventRecorderFor(controllerName),
 			MetricsRecorder: testMetricsH.MetricsRecorder,
 		}
 		if err := (reconciler).SetupWithManager(testEnv, CueInstanceReconcilerOptions{MaxConcurrentReconciles: 4}); err != nil {

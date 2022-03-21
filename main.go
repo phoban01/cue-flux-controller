@@ -42,7 +42,7 @@ import (
 	"github.com/fluxcd/pkg/runtime/pprof"
 	"github.com/fluxcd/pkg/runtime/probes"
 
-	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 	cuev1alpha1 "github.com/phoban01/cue-flux-controller/api/v1alpha1"
 	"github.com/phoban01/cue-flux-controller/controllers"
 	//+kubebuilder:scaffold:imports
@@ -96,16 +96,6 @@ func main() {
 
 	ctrl.SetLogger(logger.NewLogger(logOptions))
 
-	var eventRecorder *events.Recorder
-	if eventsAddr != "" {
-		if er, err := events.NewRecorder(eventsAddr, controllerName); err != nil {
-			setupLog.Error(err, "unable to create event recorder")
-			os.Exit(1)
-		} else {
-			eventRecorder = er
-		}
-	}
-
 	metricsRecorder := metrics.NewRecorder()
 	crtlmetrics.Registry.MustRegister(metricsRecorder.Collectors()...)
 
@@ -132,6 +122,16 @@ func main() {
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
+	}
+
+	var eventRecorder *events.Recorder
+	if eventsAddr != "" {
+		if er, err := events.NewRecorder(mgr, ctrl.Log, eventsAddr, controllerName); err != nil {
+			setupLog.Error(err, "unable to create event recorder")
+			os.Exit(1)
+		} else {
+			eventRecorder = er
+		}
 	}
 
 	probes.SetupChecks(mgr, setupLog)

@@ -223,8 +223,8 @@ a CUE schema to plain yaml files.</p>
 <td>
 <code>dependsOn</code><br>
 <em>
-<a href="https://godoc.org/github.com/fluxcd/pkg/runtime/dependency#CrossNamespaceDependencyReference">
-[]Runtime dependency.CrossNamespaceDependencyReference
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#NamespacedObjectReference">
+[]github.com/fluxcd/pkg/apis/meta.NamespacedObjectReference
 </a>
 </em>
 </td>
@@ -516,8 +516,8 @@ a CUE schema to plain yaml files.</p>
 <td>
 <code>dependsOn</code><br>
 <em>
-<a href="https://godoc.org/github.com/fluxcd/pkg/runtime/dependency#CrossNamespaceDependencyReference">
-[]Runtime dependency.CrossNamespaceDependencyReference
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#NamespacedObjectReference">
+[]github.com/fluxcd/pkg/apis/meta.NamespacedObjectReference
 </a>
 </em>
 </td>

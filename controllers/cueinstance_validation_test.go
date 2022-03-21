@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/fluxcd/pkg/apis/meta"
-	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 	. "github.com/onsi/gomega"
 	cuev1alpha1 "github.com/phoban01/cue-flux-controller/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"

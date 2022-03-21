@@ -19,7 +19,7 @@ import (
 	"fmt"
 
 	"github.com/fluxcd/pkg/runtime/dependency"
-	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 	cuev1alpha1 "github.com/phoban01/cue-flux-controller/api/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -52,7 +52,7 @@ func (r *CueInstanceReconciler) requestsForRevisionChangeOf(indexKey string) fun
 			if repo.GetArtifact().Revision == d.Status.LastAttemptedRevision {
 				continue
 			}
-			dd = append(dd, d)
+			dd = append(dd, d.DeepCopy())
 		}
 		sorted, err := dependency.Sort(dd)
 		if err != nil {

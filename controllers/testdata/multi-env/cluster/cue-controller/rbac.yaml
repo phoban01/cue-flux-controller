@@ -1,0 +1,149 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cue-controller
+  namespace: flux-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cue-leader-election-role
+  namespace: flux-system
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: cue-manager-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - secrets
+  - serviceaccounts
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - cue.contrib.flux.io
+  resources:
+  - cueinstances
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - cue.contrib.flux.io
+  resources:
+  - cueinstances/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - cue.contrib.flux.io
+  resources:
+  - cueinstances/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - source.toolkit.fluxcd.io
+  resources:
+  - buckets
+  - gitrepositories
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - source.toolkit.fluxcd.io
+  resources:
+  - buckets/status
+  - gitrepositories/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cue-leader-election-rolebinding
+  namespace: flux-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cue-leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: cue-controller
+  namespace: flux-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cue-cluster-reconciler
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: cue-controller
+  namespace: flux-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cue-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cue-manager-role
+subjects:
+- kind: ServiceAccount
+  name: cue-controller
+  namespace: flux-system

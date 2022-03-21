@@ -20,11 +20,9 @@ import (
 	"time"
 
 	"github.com/fluxcd/pkg/apis/meta"
-	"github.com/fluxcd/pkg/runtime/dependency"
 
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 type ValidationMode string
@@ -85,7 +83,7 @@ type CueInstanceSpec struct {
 
 	// Dependencies that must be ready before the CUE instance is reconciled.
 	// +optional
-	DependsOn []dependency.CrossNamespaceDependencyReference `json:"dependsOn,omitempty"`
+	DependsOn []meta.NamespacedObjectReference `json:"dependsOn,omitempty"`
 
 	// A list of resources to be included in the health assessment.
 	// +optional
@@ -196,11 +194,8 @@ func (in CueInstance) GetRetryInterval() time.Duration {
 }
 
 // GetDependsOn returns the list of dependencies across-namespaces.
-func (in CueInstance) GetDependsOn() (types.NamespacedName, []dependency.CrossNamespaceDependencyReference) {
-	return types.NamespacedName{
-		Namespace: in.Namespace,
-		Name:      in.Name,
-	}, in.Spec.DependsOn
+func (in CueInstance) GetDependsOn() []meta.NamespacedObjectReference {
+	return in.Spec.DependsOn
 }
 
 // GetStatusConditions returns a pointer to the Status.Conditions slice.
@@ -210,53 +205,86 @@ func (in *CueInstance) GetStatusConditions() *[]metav1.Condition {
 
 // CueInstanceProgressing resets the conditions of the given CueInstance to a single
 // ReadyCondition with status ConditionUnknown.
-func CueInstanceProgressing(k CueInstance, message string) CueInstance {
-	meta.SetResourceCondition(&k, meta.ReadyCondition, metav1.ConditionUnknown, meta.ProgressingReason, message)
-	return k
+func CueInstanceProgressing(c CueInstance, message string) CueInstance {
+	newCondition := metav1.Condition{
+		Type:    meta.ReadyCondition,
+		Status:  metav1.ConditionUnknown,
+		Reason:  meta.ProgressingReason,
+		Message: message,
+	}
+	apimeta.SetStatusCondition(c.GetStatusConditions(), newCondition)
+	return c
 }
 
 // SetCueInstanceHealthiness sets the HealthyCondition status for a CueInstance.
-func SetCueInstanceHealthiness(k *CueInstance, status metav1.ConditionStatus, reason, message string) {
-	if !k.Spec.Wait && len(k.Spec.HealthChecks) == 0 {
-		apimeta.RemoveStatusCondition(k.GetStatusConditions(), HealthyCondition)
+func SetCueInstanceHealthiness(c *CueInstance, status metav1.ConditionStatus, reason, message string) {
+	if !c.Spec.Wait && len(c.Spec.HealthChecks) == 0 {
+		apimeta.RemoveStatusCondition(c.GetStatusConditions(), HealthyCondition)
 	} else {
-		meta.SetResourceCondition(k, HealthyCondition, status, reason, trimString(message, MaxConditionMessageLength))
+		newCondition := metav1.Condition{
+			Type:    HealthyCondition,
+			Status:  status,
+			Reason:  reason,
+			Message: trimString(message, MaxConditionMessageLength),
+		}
+		apimeta.SetStatusCondition(c.GetStatusConditions(), newCondition)
 	}
-
 }
 
 // SetCueInstanceReadiness sets the ReadyCondition, ObservedGeneration, and LastAttemptedRevision, on the CueInstance.
-func SetCueInstanceReadiness(k *CueInstance, status metav1.ConditionStatus, reason, message string, revision string) {
-	meta.SetResourceCondition(k, meta.ReadyCondition, status, reason, trimString(message, MaxConditionMessageLength))
-	k.Status.ObservedGeneration = k.Generation
-	k.Status.LastAttemptedRevision = revision
+func SetCueInstanceReadiness(c *CueInstance, status metav1.ConditionStatus, reason, message string, revision string) {
+	newCondition := metav1.Condition{
+		Type:    meta.ReadyCondition,
+		Status:  status,
+		Reason:  reason,
+		Message: trimString(message, MaxConditionMessageLength),
+	}
+	apimeta.SetStatusCondition(c.GetStatusConditions(), newCondition)
+	c.Status.ObservedGeneration = c.Generation
+	c.Status.LastAttemptedRevision = revision
 }
 
 // CueInstanceNotReady registers a failed apply attempt of the given CueInstance.
-func CueInstanceNotReady(k CueInstance, revision, reason, message string) CueInstance {
-	SetCueInstanceReadiness(&k, metav1.ConditionFalse, reason, trimString(message, MaxConditionMessageLength), revision)
-	if revision != "" {
-		k.Status.LastAttemptedRevision = revision
+func CueInstanceNotReady(c CueInstance, revision, reason, message string) CueInstance {
+	newCondition := metav1.Condition{
+		Type:    meta.ReadyCondition,
+		Status:  metav1.ConditionFalse,
+		Reason:  reason,
+		Message: trimString(message, MaxConditionMessageLength),
 	}
-	return k
+	apimeta.SetStatusCondition(c.GetStatusConditions(), newCondition)
+	if revision != "" {
+		c.Status.LastAttemptedRevision = revision
+	}
+	return c
 }
 
 // CueInstanceNotReadyInventory registers a failed apply attempt of the given CueInstance.
-func CueInstanceNotReadyInventory(k CueInstance, inventory *ResourceInventory, revision, reason, message string) CueInstance {
-	SetCueInstanceReadiness(&k, metav1.ConditionFalse, reason, trimString(message, MaxConditionMessageLength), revision)
+func CueInstanceNotReadyInventory(c CueInstance, inventory *ResourceInventory, revision, reason, message string) CueInstance {
+	SetCueInstanceReadiness(&c, metav1.ConditionFalse, reason, trimString(message, MaxConditionMessageLength), revision)
 	if revision != "" {
-		k.Status.LastAttemptedRevision = revision
+		c.Status.LastAttemptedRevision = revision
 	}
-	k.Status.Inventory = inventory
-	return k
+	c.Status.Inventory = inventory
+	return c
 }
 
 // CueInstanceReadyInventory registers a successful apply attempt of the given CueInstance.
-func CueInstanceReadyInventory(k CueInstance, inventory *ResourceInventory, revision, reason, message string) CueInstance {
-	SetCueInstanceReadiness(&k, metav1.ConditionTrue, reason, trimString(message, MaxConditionMessageLength), revision)
-	k.Status.Inventory = inventory
-	k.Status.LastAppliedRevision = revision
-	return k
+func CueInstanceReadyInventory(c CueInstance, inventory *ResourceInventory, revision, reason, message string) CueInstance {
+	SetCueInstanceReadiness(&c, metav1.ConditionTrue, reason, trimString(message, MaxConditionMessageLength), revision)
+	c.Status.Inventory = inventory
+	c.Status.LastAppliedRevision = revision
+	return c
+}
+
+// GetConditions returns the status conditions of the object.
+func (in CueInstance) GetConditions() []metav1.Condition {
+	return in.Status.Conditions
+}
+
+// SetConditions sets the status conditions on the object.
+func (in *CueInstance) SetConditions(conditions []metav1.Condition) {
+	in.Status.Conditions = conditions
 }
 
 // CueInstanceStatus defines the observed state of CueInstance

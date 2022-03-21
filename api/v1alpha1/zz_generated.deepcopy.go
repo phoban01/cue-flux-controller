@@ -23,7 +23,6 @@ package v1alpha1
 
 import (
 	"github.com/fluxcd/pkg/apis/meta"
-	"github.com/fluxcd/pkg/runtime/dependency"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
@@ -124,7 +123,7 @@ func (in *CueInstanceSpec) DeepCopyInto(out *CueInstanceSpec) {
 	}
 	if in.DependsOn != nil {
 		in, out := &in.DependsOn, &out.DependsOn
-		*out = make([]dependency.CrossNamespaceDependencyReference, len(*in))
+		*out = make([]meta.NamespacedObjectReference, len(*in))
 		copy(*out, *in)
 	}
 	if in.HealthChecks != nil {
