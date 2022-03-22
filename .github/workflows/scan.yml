@@ -12,18 +12,6 @@ permissions:
   security-events: write # for codeQL to write security events
 
 jobs:
-  fossa:
-    name: FOSSA
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Run FOSSA scan and upload build data
-        uses: fossa-contrib/fossa-action@v1
-        with:
-          # FOSSA Push-Only API Token
-          fossa-api-key: bcc6976f00f91ea042a169a9ce534805
-          github-token: ${{ github.token }}
-
   codeql:
     name: CodeQL
     runs-on: ubuntu-latest
