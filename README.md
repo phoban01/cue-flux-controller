@@ -3,7 +3,6 @@
 [![report](https://goreportcard.com/badge/github.com/phoban01/cue-flux-controller)](https://goreportcard.com/report/github.com/phoban01/cue-flux-controller)
 [![license](https://img.shields.io/github/license/phoban01/cue-flux-controller.svg)](https://github.com/fluxcd/cue-flux-controller/blob/main/LICENSE)
 [![release](https://img.shields.io/github/release/phoban01/cue-flux-controller/all.svg)](https://github.com/phoban01/cue-flux-controller/releases)
-[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fphoban01%2Fcue-flux-controller.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fphoban01%2Fcue-flux-controller?ref=badge_shield)
 
 The cue-controller is an experimental Kubernetes controller for the CUE language. It integrates with Flux using the GitOps Toolkit and enables building GitOps pipelines directly in CUE.
 
@@ -121,7 +120,3 @@ service/podinfo   ClusterIP   10.96.171.221   <none>        9898/TCP   5s
 NAME                                          REFERENCE            TARGETS                          MINPODS   MAXPODS   REPLICAS   AGE
 horizontalpodautoscaler.autoscaling/podinfo   Deployment/podinfo   <unknown>/500Mi, <unknown>/75%   1         4         1          10s
 ```
-
-
-## License
-[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fphoban01%2Fcue-flux-controller.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fphoban01%2Fcue-flux-controller?ref=badge_large)
