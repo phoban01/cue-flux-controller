@@ -29,6 +29,7 @@ Use cases:
 - [x] Validation failure notifications (via notification controller)
 - [x] Dependency ordering using `dependsOn`
 - [x] Health checks for deployed workloads
+- [x] Gate deployments using CUE expressions
 - [ ] Support for decrypting secrets with Mozilla SOPS
 
 Specifications:
