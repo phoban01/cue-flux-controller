@@ -221,6 +221,21 @@ a CUE schema to plain yaml files.</p>
 </tr>
 <tr>
 <td>
+<code>gates</code><br>
+<em>
+<a href="#cue.contrib.flux.io/v1alpha1.GateExpr">
+[]GateExpr
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>A list of CUE expressions that must be true for the CUE instance to be
+reconciled</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>dependsOn</code><br>
 <em>
 <a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#NamespacedObjectReference">
@@ -514,6 +529,21 @@ a CUE schema to plain yaml files.</p>
 </tr>
 <tr>
 <td>
+<code>gates</code><br>
+<em>
+<a href="#cue.contrib.flux.io/v1alpha1.GateExpr">
+[]GateExpr
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>A list of CUE expressions that must be true for the CUE instance to be
+reconciled</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>dependsOn</code><br>
 <em>
 <a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#NamespacedObjectReference">
@@ -763,6 +793,49 @@ ResourceInventory
 <td>
 <em>(Optional)</em>
 <p>Inventory contains the list of Kubernetes resource object references that have been successfully applied.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<h3 id="cue.contrib.flux.io/v1alpha1.GateExpr">GateExpr
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#cue.contrib.flux.io/v1alpha1.CueInstanceSpec">CueInstanceSpec</a>)
+</p>
+<p>GateExpr defines a CUE expression that must be true for the CUE instance to be reconciled</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>expr</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>The CUE expression to evaluate.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>name</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>The name of the gate.</p>
 </td>
 </tr>
 </tbody>
