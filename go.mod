@@ -1,6 +1,6 @@
 module github.com/phoban01/cue-flux-controller
 
-go 1.17
+go 1.19
 
 require (
 	cuelang.org/go v0.4.2
@@ -121,5 +121,3 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
-
-replace github.com/golang/glog => github.com/slok/noglog v0.2.0
