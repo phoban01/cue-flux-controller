@@ -47,6 +47,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/reference"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling"
 	"sigs.k8s.io/cli-utils/pkg/object"
@@ -329,6 +330,7 @@ func (r *CueInstanceReconciler) reconcile(
 			err.Error(),
 		), err
 	}
+
 	// check build path exists
 	dirPath, err := securejoin.SecureJoin(moduleRootPath, cueInstance.Spec.Path)
 	if err != nil {
@@ -372,6 +374,17 @@ func (r *CueInstanceReconciler) reconcile(
 			cuev1alpha1.BuildFailedReason,
 			err.Error(),
 		), err
+	}
+
+	// ensure the gates are open
+	gateErrors := r.checkGates(ctx, revision, moduleRootPath, dirPath, &cueInstance)
+	if gateErrors != nil {
+		return cuev1alpha1.CueInstanceNotReady(
+			cueInstance,
+			revision,
+			cuev1alpha1.GateFailedReason,
+			gateErrors.Error(),
+		), nil
 	}
 
 	// convert the build result into Kubernetes unstructured objects
@@ -681,6 +694,72 @@ func (r *CueInstanceReconciler) build(ctx context.Context,
 	}
 
 	return result.Bytes(), nil
+}
+
+func (r *CueInstanceReconciler) checkGates(ctx context.Context,
+	revision, root, dir string,
+	instance *cuev1alpha1.CueInstance,
+) error {
+	log := ctrl.LoggerFrom(ctx)
+	cctx := cuecontext.New()
+
+	tags := make([]string, 0, len(instance.Spec.Tags))
+	for _, t := range instance.Spec.Tags {
+		if t.Value != "" {
+			tags = append(tags, fmt.Sprintf("%s=%s", t.Name, t.Value))
+		} else {
+			tags = append(tags, t.Name)
+		}
+	}
+
+	tagVars := load.DefaultTagVars()
+	for _, t := range instance.Spec.TagVars {
+		tagVars[t.Name] = load.TagVar{
+			Func: func() (ast.Expr, error) {
+				return ast.NewString(t.Value), nil
+			},
+		}
+	}
+
+	cfg := &load.Config{
+		ModuleRoot: root,
+		Dir:        dir,
+		DataFiles:  true, //TODO: this could be configurable
+		Tags:       tags,
+		TagVars:    tagVars,
+	}
+
+	if instance.Spec.Package != "" {
+		cfg.Package = instance.Spec.Package
+	}
+
+	ix := load.Instances([]string{}, cfg)
+	if len(ix) == 0 {
+		return fmt.Errorf("no instances found")
+	}
+
+	inst := ix[0]
+	if inst.Err != nil {
+		return inst.Err
+	}
+
+	value := cctx.BuildInstance(inst)
+	if value.Err() != nil {
+		return value.Err()
+	}
+
+	var errors []error
+	for _, g := range instance.Spec.Gates {
+		result := value.LookupPath(cue.ParsePath(g.Expr))
+		valid := result.Validate()
+		open, err := result.Bool()
+		if !open || valid != nil {
+			log.Info("gate check failed", "gate", g.Name, "expr", g.Expr, "result", result, "error", err)
+			errors = append(errors, fmt.Errorf("%s failed: %w", g.Name, err))
+		}
+	}
+
+	return utilerrors.NewAggregate(errors)
 }
 
 func cueEncodeYAML(value cue.Value) ([]byte, error) {

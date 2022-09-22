@@ -35,6 +35,8 @@ KUBEBUILDER_ASSETS?="$(shell $(ENVTEST) --arch=$(ENVTEST_ARCH) use -i $(ENVTEST_
 test: generate fmt vet manifests api-docs download-crd-deps install-envtest
 	KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS) go test ./controllers  -v -coverprofile cover.out
 
+target-test: generate fmt vet manifests api-docs download-crd-deps install-envtest
+	KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS) go test ./controllers  -v -coverprofile cover.out -run $(TARGET)
 # Build manager binary
 manager: generate fmt vet
 	go build -o bin/manager main.go

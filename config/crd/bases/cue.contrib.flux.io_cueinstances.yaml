@@ -63,6 +63,24 @@ spec:
                 description: Force instructs the controller to recreate resources
                   when patching fails due to an immutable field change.
                 type: boolean
+              gates:
+                description: A list of CUE expressions that must be true for the CUE
+                  instance to be reconciled
+                items:
+                  description: GateExpr defines a CUE expression that must be true
+                    for the CUE instance to be reconciled
+                  properties:
+                    expr:
+                      description: The CUE expression to evaluate.
+                      type: string
+                    name:
+                      description: The name of the gate.
+                      type: string
+                  required:
+                  - expr
+                  - name
+                  type: object
+                type: array
               healthChecks:
                 description: A list of resources to be included in the health assessment.
                 items:

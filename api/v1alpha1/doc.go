@@ -15,6 +15,6 @@ limitations under the License.
 */
 
 // Package v1alpha1 contains API Schema definitions for the cue v1alpha1 API group
-//+kubebuilder:object:generate=true
-//+groupName=cue.contrib.flux.io
+// +kubebuilder:object:generate=true
+// +groupName=cue.contrib.flux.io
 package v1alpha1

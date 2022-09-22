@@ -81,6 +81,11 @@ type CueInstanceSpec struct {
 	// +optional
 	Exprs []string `json:"expressions,omitempty"`
 
+	// A list of CUE expressions that must be true for the CUE instance to be
+	// reconciled
+	// +optional
+	Gates []GateExpr `json:"gates,omitempty"`
+
 	// Dependencies that must be ready before the CUE instance is reconciled.
 	// +optional
 	DependsOn []meta.NamespacedObjectReference `json:"dependsOn,omitempty"`
@@ -135,6 +140,17 @@ type CueInstanceSpec struct {
 	// would allow for greater flexibility
 	// +optional
 	Validate *Validation `json:"validate,omitempty"`
+}
+
+// GateExpr defines a CUE expression that must be true for the CUE instance to be reconciled
+type GateExpr struct {
+	// The CUE expression to evaluate.
+	// +required
+	Expr string `json:"expr"`
+
+	// The name of the gate.
+	// +required
+	Name string `json:"name"`
 }
 
 // TagVar is a tag variable with a required name and optional value

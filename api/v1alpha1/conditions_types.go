@@ -29,8 +29,12 @@ const (
 	// kustomize build failed.
 	BuildFailedReason string = "BuildFailed"
 
+	// GateFailedReason represents the fact that the
+	// cue build failed.
+	GateFailedReason string = "GateFailedReasonk"
+
 	// PruneFailedReason represents the fact that the
-	// pruning of the Kustomization failed.
+	// pruning of the CueInstance failed.
 	PruneFailedReason string = "PruneFailed"
 
 	// HealthCheckFailedReason represents the fact that
