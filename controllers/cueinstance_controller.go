@@ -493,7 +493,7 @@ func (r *CueInstanceReconciler) reconcile(
 		cueInstance,
 		newInventory,
 		revision,
-		meta.FailedReason,
+		meta.SucceededReason,
 		fmt.Sprintf("Applied revision: %s", revision),
 	), err
 }
